@@ -190,6 +190,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
       });
 
       if (_questions.isNotEmpty) {
+        // บังคับให้ระบบรู้ว่ากำลังจะเตรียมโหลดเสียง
+        setState(() => _isNavigating = true);
         _loadAudio(isDirection: true);
       }
     } catch (e) {
@@ -250,9 +252,9 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
         // ตั้งค่า Source และตำแหน่งเริ่มต้น
         await _audioPlayer.setSource(UrlSource(audioUrl));
         await _audioPlayer.seek(Duration(seconds: startTime));
-
-        // ตรวจสอบสถานะอีกครั้งก่อนสั่งเล่น
-        if (mounted && _isNavigating) {
+        // เพิ่มส่วนนี้: ถ้าเป็นหน้า Direction ให้สั่ง resume ทันที
+        // ถ้าเป็น Direction ให้ข้ามเช็ค _isNavigating หรือบังคับเล่นเลย
+        if (mounted && (isDirection || _isNavigating)) {
           await _audioPlayer.resume();
         }
       } catch (e) {
@@ -1032,8 +1034,11 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
         'reading_raw': rRaw,
         'score': lRaw + rRaw,
         'total_questions': _questions.length,
-        'answers': _userAnswers.map((k, v) => MapEntry(k.toString(), v)), // เก็บคำตอบ JSONB
-        'questions_snapshot': _questions, // บันทึกโจทย์+เฉลย+คำอธิบาย ณ ตอนนี้ลง JSONB
+        'answers': _userAnswers.map(
+          (k, v) => MapEntry(k.toString(), v),
+        ), // เก็บคำตอบ JSONB
+        'questions_snapshot':
+            _questions, // บันทึกโจทย์+เฉลย+คำอธิบาย ณ ตอนนี้ลง JSONB
       });
 
       // 3. ส่งข้อมูลสรุปทักษะ (แก้ปัญหาค้าง)

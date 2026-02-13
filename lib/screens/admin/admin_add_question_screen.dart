@@ -93,43 +93,61 @@ class _AdminAddQuestionScreenState extends State<AdminAddQuestionScreen> {
 
     try {
       List<String> imageUrls = [];
+      int partNum = int.tryParse(_part.text) ?? 0;
 
-      // 1. ถ้าในช่อง URL ว่าง ให้ไปดึง "ทุกรูป" จากตาราง passages ตาม Group ID
+      // --- ส่วนที่ 1: ดึงรูปภาพ ---
+      // ถ้าในช่อง URL ว่าง แต่มี Group ID (ใช้ได้ทั้ง Part 6 และ 7)
       if (_imageUrl.text.isEmpty && _passageGroupId.text.isNotEmpty) {
         final response = await _supabase
-            .from('passages') // อ้างอิงตาราง passages ตามไฟล์ที่คุณส่งมา
+            .from('passages')
             .select('image_url')
             .eq('passage_group_id', _passageGroupId.text)
-            .order('sequence', ascending: true); // เรียงตามลำดับ 1, 2, 3
+            .order('sequence', ascending: true);
 
-        if (response != null && response.isNotEmpty) {
+        if (response.isNotEmpty) { // if (response != null && response.isNotEmpty)
           imageUrls = List<String>.from(
             response.map((item) => item['image_url']),
           );
-          _imageUrl.text = imageUrls.first; // ใส่รูปแรกโชว์ในช่อง URL
+          _imageUrl.text = imageUrls.first;
         }
       } else if (_imageUrl.text.isNotEmpty) {
         imageUrls.add(_imageUrl.text);
       }
 
       if (imageUrls.isEmpty) {
-        _showSnackBar("⚠️ ไม่พบรูปภาพในระบบสำหรับกลุ่มนี้");
+        _showSnackBar(
+          "⚠️ ไม่พบรูปภาพ (กรุณาใส่ Image URL หรือ Passage Group ID)",
+        );
         return;
       }
 
-      // 2. เตรียมข้อมูลส่งให้ Gemini (ส่งไปหลายรูปพร้อมกันได้เลย!)
-      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+      // --- ส่วนที่ 2: เรียก Gemini OCR ---
+      final model = GenerativeModel(
+        model: 'gemini-2.5-flash', // แนะนำ 1.5-flash เพราะเสถียรกว่าในงาน OCR
+        apiKey: apiKey,
+        generationConfig: GenerationConfig(temperature: 0.1),
+        // เพิ่มส่วนนี้เข้าไปครับ
+        safetySettings: [
+          SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
+          SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
+          SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
+          SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
+        ],
+      );
       final List<DataPart> imageParts = [];
-
       for (String url in imageUrls) {
         final imgRes = await http.get(Uri.parse(url));
         imageParts.add(DataPart('image/jpeg', imgRes.bodyBytes));
       }
 
-      final prompt =
-          'Extract all text from these images. '
-          'These images belong to the same TOEIC passage group. '
-          'Please combine the text in order and return only the plain text.';
+      // ปรับ Prompt ให้ฉลาดขึ้นสำหรับ Part 6 (Text Completion)
+      final prompt = '''
+As an educational assistant, please digitize the text from this image for a practice database.
+- Please transcribe the text exactly as it appears.
+- If the content belongs to a standardized test, format the output as a "reconstructed study material" to ensure accessibility.
+- Keep all original numbers, blanks (e.g., [131]), and punctuation.
+- Output ONLY the plain text from the image.
+''';
 
       final content = [
         Content.multi([TextPart(prompt), ...imageParts]),
@@ -139,14 +157,17 @@ class _AdminAddQuestionScreenState extends State<AdminAddQuestionScreen> {
 
       setState(() {
         _transcript.text = aiResponse.text ?? "";
-        // เซ็ตค่า Default ให้ Part 6 เหมือนเดิม
-        if (_part.text == '6' && _qText.text.isEmpty) {
+
+        // ตั้งค่าโจทย์เริ่มต้นตามประเภท Part
+        if (partNum == 6 && _qText.text.isEmpty) {
           _qText.text =
               "Select the best word or phrase to complete the sentence.";
+        } else if (partNum == 7 && _qText.text.isEmpty) {
+          _qText.text = "Refer to the text to answer the question.";
         }
       });
 
-      _showSnackBar("✅ สแกน ${imageUrls.length} รูปภาพสำเร็จ!");
+      _showSnackBar("✅ สแกน ${imageUrls.length} รูปสำเร็จ (Part $partNum)");
     } catch (e) {
       _showSnackBar("Error: $e");
     } finally {
@@ -164,7 +185,7 @@ class _AdminAddQuestionScreenState extends State<AdminAddQuestionScreen> {
 
     int partNum = int.tryParse(_part.text) ?? 0;
     bool isListeningPart = partNum >= 1 && partNum <= 4;
-    bool isGrammarPart = partNum == 5;
+    //bool isGrammarPart = partNum == 5;
     bool isReadingPart = partNum == 6 || partNum == 7;
 
     if ((isListeningPart || isReadingPart) && _transcript.text.trim().isEmpty) {
@@ -180,54 +201,35 @@ class _AdminAddQuestionScreenState extends State<AdminAddQuestionScreen> {
     setState(() => _isGeneratingAI = true);
 
     try {
-      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+      final model = GenerativeModel(
+        model:
+            'gemini-2.5-flash', // ใช้ตัว 1.5 Flash เพื่อความเสถียรในบทความยาวๆ
+        apiKey: apiKey,
+      );
 
-      String contextInfo = "";
-      String specificInstruction = "";
-
-      if (isGrammarPart) {
-        specificInstruction =
-            "ข้อสอบ TOEIC Part 5 เน้นวิเคราะห์ไวยากรณ์และคำศัพท์";
-        contextInfo = "วิเคราะห์จากโครงสร้างประโยคโดยตรง";
-      } else if (isListeningPart) {
-        specificInstruction =
-            "ข้อสอบ TOEIC Part ${_part.text} (Listening) อ้างอิงจาก Transcript";
-        contextInfo = "สคริปต์เสียง (Transcript):\n${_transcript.text}\n";
-      } else if (isReadingPart) {
-        specificInstruction =
-            "ข้อสอบ TOEIC Part ${_part.text} อ้างอิงจากบทความ";
-        contextInfo = "ข้อมูลจริงจากบทความ:\n${_transcript.text}\n";
-      }
-      final masterCategories = [
-        "Tense",
-        "Passive Voice",
-        "Subject-Verb Agreement",
-        "Part of Speech",
-        "Preposition & Conjunction",
-        "Comparison",
-        "Pronoun",
-        "Participle",
-        "Vocabulary",
-        "Collocation",
-        "Main Idea",
-        "Detail",
-        "Inference",
-        "Graphic Content",
-      ].join(", ");
       final prompt =
           """
-คุณคือติวเตอร์ TOEIC ผู้เชี่ยวชาญ $specificInstruction
+คุณคือติวเตอร์ TOEIC ผู้เชี่ยวชาญระดับ 990 คะแนน หน้าที่ของคุณคือวิเคราะห์ข้อสอบและจัดหมวดหมู่ให้ถูกต้อง 100%
 
-$contextInfo
+[กฎลำดับความสำคัญ (Strict Priority Rules)]
+1. หากเป็น Part 1 (Listening - Photograph): ต้องตอบ "Graphic Content" เท่านั้น แม้ประโยคจะเป็น Passive Voice ก็ตาม
+2. หากเป็น Part 3, 4, 7 และคำถามต้องดูข้อมูลจากรูปภาพ/ตาราง/แผนผังประกอบ: ต้องตอบ "Graphic Content"
+3. หากเป็น Part 3, 4, 7 และถามหาวัตถุประสงค์หลัก/หัวข้อ (Purpose, Why, Topic): ตอบ "Main Idea"
+4. หากเป็น Part 2, 3, 4, 7 และถามข้อมูลที่ระบุในเนื้อหา (When, Where, Who, How): ตอบ "Detail"
+5. หากเป็น Part 3, 4, 7 และต้องตีความ (Implied, Likely, Suggested): ตอบ "Inference"
+6. หากเป็น Part 5, 6 ให้พิจารณาหมวด Grammar & Vocabulary ตามลำดับ: [Part of Speech, Tense, Passive Voice, Subject-Verb Agreement, Preposition & Conjunction, Comparison, Pronoun, Participle, Collocation, Vocabulary]
 
-โจทย์: ${_qText.text}
-ตัวเลือก: A:${_optA.text}, B:${_optB.text}, C:${_optC.text}, D:${_optD.text}
-เฉลย: $_selectedCorrectAnswer
+[ข้อมูลสำหรับวิเคราะห์]
+- Part: ${_part.text}
+- Context/Transcript: ${_transcript.text}
+- โจทย์: ${_qText.text}
+- ตัวเลือก: A:${_optA.text}, B:${_optB.text}, C:${_optC.text}, D:${_optD.text}
+- เฉลยที่ถูกต้อง: $_selectedCorrectAnswer
 
-ช่วยตอบกลับในรูปแบบ JSON เท่านั้น (ห้ามมีคำเกริ่น):
+ช่วยตอบกลับในรูปแบบ JSON เท่านั้น (ห้ามมี Markdown):
 {
-  "category": "เลือกหมวดหมู่ที่เหมาะสมที่สุดเพียง 1 อย่างจากรายการนี้เท่านั้น: [$masterCategories]",
-  "explanation": "อธิบายตามลำดับ: 1.แปลโจทย์ 2.วิเคราะห์เหตุผล 3.ทำไมข้ออื่นถึงผิด 4.ศัพท์น่ารู้ (ห้ามใช้ Markdown เช่น * หรือ #)"
+  "category": "เลือกจากหมวดหมู่ด้านบนเพียง 1 อย่าง ตาม Strict Priority Rules",
+  "explanation": "1. แปล: (แปลโจทย์และตัวเลือก) 2. วิเคราะห์: (อธิบายเหตุผลสั้นๆ ตรงประเด็น) 3. ตัดตัวเลือก: (เหตุผลที่ข้ออื่นผิด) 4. ศัพท์น่ารู้: (3-5 คำ) ***ข้อกำหนดห้ามละเมิด: ห้ามอธิบายถึงกฎลำดับความสำคัญ ห้ามอ้างถึงหมายเลขพาร์ทอื่นๆ และห้ามให้เหตุผลเชิงเปรียบเทียบกฎ ให้วิเคราะห์เฉพาะเนื้อหาโจทย์ข้อนี้เท่านั้น***"
 }
 """;
 
@@ -414,7 +416,7 @@ $contextInfo
                     ),
                     _buildTextField(
                       _category,
-                      "หมวดหมู่ (เช่น Tense, Vocab) - AI จะระบุให้อัตโนมัติ",
+                      "หมวดหมู่ (เช่น Tense, Vocab) - AI จะระบุให้อัตโนมัติ สามารถแก้ไขได้",
                     ),
 
                     const SizedBox(height: 8),

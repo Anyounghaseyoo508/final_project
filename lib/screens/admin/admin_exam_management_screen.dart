@@ -36,6 +36,24 @@ class _AdminExamManagementScreenState extends State<AdminExamManagementScreen> {
             _getDynamicTitle(),
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
+
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline, size: 26),
+              tooltip: "เพิ่มข้อสอบ",
+              onPressed: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const AdminAddQuestionScreen(),
+                  ),
+                );
+                setState(() {}); // Refresh หน้าจอเมื่อกลับมา
+              },
+            ),
+            const SizedBox(width: 8), // เว้นระยะขอบขวานิดหน่อย
+          ],
+          // -----------------------
           leading: _currentLevel > 0
               ? IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new, size: 20),
@@ -47,20 +65,6 @@ class _AdminExamManagementScreenState extends State<AdminExamManagementScreen> {
           elevation: 2,
         ),
         body: _buildContent(),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () async {
-            // เมื่อเพิ่มเสร็จให้ Refresh หน้าจอ
-            await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const AdminAddQuestionScreen()),
-            );
-            setState(() {});
-          },
-          label: const Text("เพิ่มข้อสอบ"),
-          icon: const Icon(Icons.add),
-          backgroundColor: Colors.blueAccent.shade700,
-          foregroundColor: Colors.white,
-        ),
       ),
     );
   }

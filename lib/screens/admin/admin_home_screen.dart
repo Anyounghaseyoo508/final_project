@@ -56,8 +56,8 @@ class AdminHomeScreen extends StatelessWidget {
                   ),
                   _adminMenuCard(
                     context,
-                    title: "นำเข้า JSON",
-                    icon: Icons.data_object,
+                    title: "นำเข้าไฟล์ชุดข้อสอบ CSV",
+                    icon: Icons.file_upload,
                     color: Colors.purple,
                     route: '/admin/import',
                   ),
