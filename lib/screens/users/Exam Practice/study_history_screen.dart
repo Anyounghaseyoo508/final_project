@@ -96,71 +96,76 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
         // ในไฟล์ study_history_screen.dart
         // ใน _StudyHistoryScreenState เปลี่ยนส่วน onTap ใน ListTile
         // ใน onTap ของ study_history_screen.dart
-onTap: () async {
-  showDialog(
-    context: context,
-    barrierDismissible: false,
-    builder: (context) => const Center(child: CircularProgressIndicator()),
-  );
+        onTap: () async {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) =>
+                const Center(child: CircularProgressIndicator()),
+          );
 
-  try {
-    // ขั้นตอนที่ 1: ดึงข้อสอบทั้งหมดของ test_id นี้
-    final questionsResponse = await _supabase
-        .from('practice_test')
-        .select('*')
-        .eq('test_id', item['test_id'])
-        .order('question_no');
+          try {
+            // ขั้นตอนที่ 1: ดึงข้อสอบทั้งหมดของ test_id นี้
+            final questionsResponse = await _supabase
+                .from('practice_test')
+                .select('*')
+                .eq('test_id', item['test_id'])
+                .order('question_no');
 
-    List<Map<String, dynamic>> questions = List<Map<String, dynamic>>.from(questionsResponse);
+            List<Map<String, dynamic>> questions =
+                List<Map<String, dynamic>>.from(questionsResponse);
 
-    // ขั้นตอนที่ 2: รวบรวม passage_group_id ที่ต้องใช้ไปดึงรูป
-    final groupIds = questions
-        .map((q) => q['passage_group_id'])
-        .where((id) => id != null)
-        .toSet()
-        .toList();
+            // ขั้นตอนที่ 2: รวบรวม passage_group_id ที่ต้องใช้ไปดึงรูป
+            final groupIds = questions
+                .map((q) => q['passage_group_id'])
+                .where((id) => id != null)
+                .toSet()
+                .toList();
 
-    if (groupIds.isNotEmpty) {
-      // ดึงรูปภาพทั้งหมดจากตาราง passages ที่ตรงกับ groupIds
-      final passagesResponse = await _supabase
-          .from('passages')
-          .select('*')
-          .inFilter('passage_group_id', groupIds);
+            if (groupIds.isNotEmpty) {
+              // ดึงรูปภาพทั้งหมดจากตาราง passages ที่ตรงกับ groupIds
+              final passagesResponse = await _supabase
+                  .from('passages')
+                  .select('*')
+                  .inFilter('passage_group_id', groupIds);
 
-      final List<Map<String, dynamic>> allPassages = List<Map<String, dynamic>>.from(passagesResponse);
+              final List<Map<String, dynamic>> allPassages =
+                  List<Map<String, dynamic>>.from(passagesResponse);
 
-      // นำรูปภาพกลับมาใส่ในแต่ละข้อสอบ (Manual Join)
-      for (var q in questions) {
-        if (q['passage_group_id'] != null) {
-          q['passages'] = allPassages
-              .where((p) => p['passage_group_id'] == q['passage_group_id'])
-              .toList();
-        }
-      }
-    }
+              // นำรูปภาพกลับมาใส่ในแต่ละข้อสอบ (Manual Join)
+              for (var q in questions) {
+                if (q['passage_group_id'] != null) {
+                  q['passages'] = allPassages
+                      .where(
+                        (p) => p['passage_group_id'] == q['passage_group_id'],
+                      )
+                      .toList();
+                }
+              }
+            }
 
-    if (!mounted) return;
-    Navigator.pop(context); // ปิด Loading
+            if (!mounted) return;
+            Navigator.pop(context); // ปิด Loading
 
-    // ส่งข้อมูลที่รวมร่างแล้วไปหน้า Result
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ExamResultScreen(
-          questions: questions,
-          userAnswers: item['answers'] ?? {},
-          isHistoryView: true,
-        ),
-      ),
-    );
-  } catch (e) {
-    if (mounted) Navigator.pop(context);
-    debugPrint("Fetch Error: $e");
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("เกิดข้อผิดพลาดในการโหลดข้อมูล: $e")),
-    );
-  }
-},
+            // ส่งข้อมูลที่รวมร่างแล้วไปหน้า Result
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ExamResultScreen(
+                  questions: questions,
+                  userAnswers: item['answers'] ?? {},
+                  isHistoryView: true,
+                ),
+              ),
+            );
+          } catch (e) {
+            if (mounted) Navigator.pop(context);
+            debugPrint("Fetch Error: $e");
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("เกิดข้อผิดพลาดในการโหลดข้อมูล: $e")),
+            );
+          }
+        },
         leading: Container(
           width: 50,
           height: 50,

@@ -17,7 +17,8 @@ class ExplanationDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<ExplanationDetailScreen> createState() => _ExplanationDetailScreenState();
+  State<ExplanationDetailScreen> createState() =>
+      _ExplanationDetailScreenState();
 }
 
 class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
@@ -38,10 +39,12 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
   void _initGemini() {
     final apiKey = dotenv.env['GEMINI_API_KEY'] ?? "";
     _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
-    
+
     // ปรับ Prompt ให้สะอาดและสั่งให้ตอบสั้นกระชับ
-    _chatSession = _model.startChat(history: [
-      Content.text("""You are a TOEIC Tutor. 
+    _chatSession = _model.startChat(
+      history: [
+        Content.text(
+          """You are a TOEIC Tutor. 
       Question: ${widget.question['question_text']}
       Correct: ${widget.question['correct_answer']}
       User Answer: ${widget.userAns}
@@ -50,8 +53,10 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
       Instructions:
       1. ตอบเป็นภาษาไทย
       2. เน้นสั้น กระชับ ตรงประเด็น ไม่ต้องมีคำเกริ่นเยอะ
-      3. ห้ามใช้เครื่องหมายหัวข้อเช่น # หรือ *** 4. อธิบายเหตุผลที่ตอบข้อนี้ และจุดที่คนตอบผิดบ่อย"""),
-    ]);
+      3. ห้ามใช้เครื่องหมายหัวข้อเช่น # หรือ *** 4. อธิบายเหตุผลที่ตอบข้อนี้ และจุดที่คนตอบผิดบ่อย""",
+        ),
+      ],
+    );
   }
 
   Future<void> _sendMessage(String text, StateSetter setModalState) async {
@@ -65,7 +70,10 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
     try {
       final response = await _chatSession.sendMessage(Content.text(text));
       setModalState(() {
-        _messages.add({"role": "model", "text": response.text?.replaceAll(RegExp(r'[*#]'), '') ?? ""});
+        _messages.add({
+          "role": "model",
+          "text": response.text?.replaceAll(RegExp(r'[*#]'), '') ?? "",
+        });
         _isTyping = false;
       });
     } catch (e) {
@@ -89,11 +97,20 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.question['question_text'] ?? "", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(
+                    widget.question['question_text'] ?? "",
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 20),
                   _buildAnswerRow(),
                   const Divider(height: 40),
-                  const Text("คำอธิบาย:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text(
+                    "คำอธิบาย:",
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text(widget.question['explanation'] ?? "-"),
                   const SizedBox(height: 30),
                   _buildAiButton(),
@@ -109,7 +126,11 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
   Widget _buildAnswerRow() {
     return Row(
       children: [
-        _box("คุณตอบ", widget.userAns, widget.isCorrect ? Colors.green : Colors.red),
+        _box(
+          "คุณตอบ",
+          widget.userAns,
+          widget.isCorrect ? Colors.green : Colors.red,
+        ),
         const SizedBox(width: 10),
         _box("เฉลย", widget.question['correct_answer'], Colors.green),
       ],
@@ -120,8 +141,24 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: c.withOpacity(0.3))),
-        child: Column(children: [Text(t, style: TextStyle(fontSize: 12, color: c)), Text(v, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: c))]),
+        decoration: BoxDecoration(
+          color: c.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: c.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Text(t, style: TextStyle(fontSize: 12, color: c)),
+            Text(
+              v,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: c,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -134,16 +171,19 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
         onPressed: () => _showChatBot(context),
         icon: const Icon(Icons.bolt),
         label: const Text("ถาม AI Tutor (สั้นกระชับ)"),
-        style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
+        ),
       ),
     );
   }
 
   // ... (ฟังก์ชัน _getImageUrls และ _buildImageSlider เหมือนเดิมจากโค้ดก่อนหน้า) ...
 
- void _showChatBot(BuildContext context) {
+  void _showChatBot(BuildContext context) {
     // ลบการเรียก _sendMessage อัตโนมัติออก เพื่อให้เปิดหน้าจอได้ทันที
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -160,20 +200,29 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
               // Handle Bar ส่วนหัวสำหรับดึงลง
               Container(
                 margin: const EdgeInsets.only(top: 10, bottom: 5),
-                width: 40, height: 5,
-                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 10),
-                child: Text("AI TOEIC Tutor", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text(
+                  "AI TOEIC Tutor",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
               const Divider(height: 1),
-              
+
               // เนื้อหาแชท
               Expanded(
-                child: _messages.isEmpty 
-                  ? _buildWelcomeView(setModalState) // แสดงคำถามแนะนำถ้ายังไม่มีการคุย
-                  : _buildChatMessageList(),       // แสดงรายการแชทปกติ
+                child: _messages.isEmpty
+                    ? _buildWelcomeView(
+                        setModalState,
+                      ) // แสดงคำถามแนะนำถ้ายังไม่มีการคุย
+                    : _buildChatMessageList(), // แสดงรายการแชทปกติ
               ),
 
               if (_isTyping) const LinearProgressIndicator(minHeight: 2),
@@ -202,7 +251,11 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
           padding: const EdgeInsets.all(20.0),
           child: Column(
             children: [
-              Icon(Icons.auto_awesome, size: 50, color: Colors.indigo.withOpacity(0.5)),
+              Icon(
+                Icons.auto_awesome,
+                size: 50,
+                color: Colors.indigo.withOpacity(0.5),
+              ),
               const SizedBox(height: 15),
               const Text(
                 "สวัสดีครับ! อยากให้ช่วยอธิบายส่วนไหนเพิ่มเติมไหม?",
@@ -214,13 +267,25 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
                 spacing: 10,
                 runSpacing: 10,
                 alignment: WrapAlignment.center,
-                children: suggestions.map((text) => ActionChip(
-                  label: Text(text, style: const TextStyle(fontSize: 13, color: Colors.indigo)),
-                  backgroundColor: Colors.indigo.withOpacity(0.05),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                  side: BorderSide(color: Colors.indigo.withOpacity(0.2)),
-                  onPressed: () => _sendMessage(text, setModalState),
-                )).toList(),
+                children: suggestions
+                    .map(
+                      (text) => ActionChip(
+                        label: Text(
+                          text,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Colors.indigo,
+                          ),
+                        ),
+                        backgroundColor: Colors.indigo.withOpacity(0.05),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        side: BorderSide(color: Colors.indigo.withOpacity(0.2)),
+                        onPressed: () => _sendMessage(text, setModalState),
+                      ),
+                    )
+                    .toList(),
               ),
             ],
           ),
@@ -241,7 +306,9 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
           child: Container(
             margin: const EdgeInsets.symmetric(vertical: 5),
             padding: const EdgeInsets.all(12),
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.75,
+            ),
             decoration: BoxDecoration(
               color: isUser ? Colors.indigo : Colors.grey[100],
               borderRadius: BorderRadius.circular(15).copyWith(
@@ -264,7 +331,9 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom + 15,
-        left: 15, right: 15, top: 10,
+        left: 15,
+        right: 15,
+        top: 10,
       ),
       child: Row(
         children: [
@@ -279,7 +348,10 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
                   borderRadius: BorderRadius.circular(25),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
               ),
               onSubmitted: (v) => _sendMessage(v, setModalState),
             ),
@@ -289,7 +361,8 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
             backgroundColor: Colors.indigo,
             child: IconButton(
               icon: const Icon(Icons.send, color: Colors.white, size: 20),
-              onPressed: () => _sendMessage(_chatController.text, setModalState),
+              onPressed: () =>
+                  _sendMessage(_chatController.text, setModalState),
             ),
           ),
         ],
@@ -300,7 +373,9 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
   // ฟังก์ชันดึงรูปภาพ (Copy จากเวอร์ชันก่อนหน้าได้เลย)
   List<String> _getImageUrls() {
     final Set<String> urlSet = {};
-    if (widget.question['image_url'] != null && widget.question['image_url'].toString().isNotEmpty) urlSet.add(widget.question['image_url']);
+    if (widget.question['image_url'] != null &&
+        widget.question['image_url'].toString().isNotEmpty)
+      urlSet.add(widget.question['image_url']);
     if (widget.question['passages'] != null) {
       for (var p in widget.question['passages']) {
         if (p['image_url'] != null) urlSet.add(p['image_url']);
@@ -318,10 +393,14 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
             controller: _pageController,
             itemCount: urls.length,
             onPageChanged: (i) => setState(() => _currentPage = i),
-            itemBuilder: (context, i) => InteractiveViewer(child: Image.network(urls[i])),
+            itemBuilder: (context, i) =>
+                InteractiveViewer(child: Image.network(urls[i])),
           ),
         ),
-        Text("${_currentPage + 1}/${urls.length}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        Text(
+          "${_currentPage + 1}/${urls.length}",
+          style: const TextStyle(fontSize: 10, color: Colors.grey),
+        ),
       ],
     );
   }

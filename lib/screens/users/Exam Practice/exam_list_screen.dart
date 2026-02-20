@@ -13,12 +13,13 @@ class _ExamListScreenState extends State<ExamListScreen> {
 
   // ดึงรายการ Test ID ทั้งหมดที่มีในระบบ (ไม่ให้ซ้ำกัน)
   Future<List<int>> _getTestList() async {
-    final response = await _supabase
-        .from('practice_test')
-        .select('test_id');
-    
+    final response = await _supabase.from('practice_test').select('test_id');
+
     // กรองเอาเฉพาะ ID ที่ไม่ซ้ำ และเรียงลำดับ
-    final ids = (response as List).map((item) => item['test_id'] as int).toSet().toList();
+    final ids = (response as List)
+        .map((item) => item['test_id'] as int)
+        .toSet()
+        .toList();
     ids.sort();
     return ids;
   }
@@ -27,6 +28,7 @@ class _ExamListScreenState extends State<ExamListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: false,
         title: const Text("เลือกชุดข้อสอบ TOEIC"),
         backgroundColor: Colors.blueAccent.shade700,
         foregroundColor: Colors.white,
@@ -50,22 +52,35 @@ class _ExamListScreenState extends State<ExamListScreen> {
               return Card(
                 elevation: 2,
                 margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
                 child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
                   leading: CircleAvatar(
                     backgroundColor: Colors.blueAccent.withOpacity(0.1),
-                    child: Icon(Icons.assignment, color: Colors.blueAccent.shade700),
+                    child: Icon(
+                      Icons.assignment,
+                      color: Colors.blueAccent.shade700,
+                    ),
                   ),
-                  title: Text("TOEIC Practice Test #$id", 
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  title: Text(
+                    "TOEIC Practice Test #$id",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
                   subtitle: const Text("200 Questions • 2 Hours"),
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                   onTap: () {
                     // ส่ง testId ไปที่หน้าทำข้อสอบ
                     Navigator.pushNamed(
-                      context, 
-                      '/practice_exam', 
+                      context,
+                      '/practice_exam',
                       arguments: id,
                     );
                   },

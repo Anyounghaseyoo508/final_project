@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'vocab_list_screen.dart'; // ตรวจสอบ path ให้ถูกต้องตามโครงสร้างโฟลเดอร์ของคุณ
-import 'exam_list_screen.dart';
-import 'study_history_screen.dart';
+import 'Vocabulary Learning/vocab_list_screen.dart'; // ตรวจสอบ path ให้ถูกต้องตามโครงสร้างโฟลเดอร์ของคุณ
+import 'Exam Practice/exam_list_screen.dart';
+import 'Exam Practice/study_history_screen.dart';
 
 class UserDashboardScreen extends StatelessWidget {
   const UserDashboardScreen({super.key});
@@ -15,6 +15,7 @@ class UserDashboardScreen extends StatelessWidget {
         slivers: [
           // ส่วนที่ 1: Header & Profile (Scope 1.3.5.2, 1.3.5.3)
           SliverAppBar(
+            automaticallyImplyLeading: false,
             expandedHeight: 220,
             floating: false,
             pinned: true,
