@@ -38,14 +38,14 @@ class AdminHomeScreen extends StatelessWidget {
                     title: "จัดการข้อสอบ",
                     icon: Icons.quiz,
                     color: Colors.blue,
-                    route: '/admin/exams', // ไปหน้า List ข้อสอบ
+                    route: '/admin/exams',
                   ),
                   _adminMenuCard(
                     context,
                     title: "เพิ่มข้อสอบใหม่",
                     icon: Icons.add_to_photos,
                     color: Colors.green,
-                    route: '/admin/add_question', // ไปหน้าฟอร์มเพิ่ม
+                    route: '/admin/add',
                   ),
                   _adminMenuCard(
                     context,
@@ -56,7 +56,7 @@ class AdminHomeScreen extends StatelessWidget {
                   ),
                   _adminMenuCard(
                     context,
-                    title: "นำเข้าไฟล์ชุดข้อสอบ CSV",
+                    title: "นำเข้าไฟล์ CSV",
                     icon: Icons.file_upload,
                     color: Colors.purple,
                     route: '/admin/import',
@@ -67,6 +67,13 @@ class AdminHomeScreen extends StatelessWidget {
                     icon: Icons.translate,
                     color: Colors.teal,
                     route: '/admin/vocab',
+                  ),
+                  _adminMenuCard(
+                    context,
+                    title: "ติดตามผู้ใช้",
+                    icon: Icons.analytics,
+                    color: Colors.red,
+                    route: '/admin/monitoring',
                   ),
                 ],
               ),

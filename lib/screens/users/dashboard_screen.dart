@@ -19,6 +19,16 @@ class UserDashboardScreen extends StatelessWidget {
             floating: false,
             pinned: true,
             elevation: 0,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.person),
+                onPressed: () => Navigator.pushNamed(context, '/profile'),
+              ),
+              IconButton(
+                icon: const Icon(Icons.bar_chart),
+                onPressed: () => Navigator.pushNamed(context, '/statistics'),
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -156,7 +166,7 @@ class UserDashboardScreen extends StatelessWidget {
                   "ทบทวนแบบสนุกๆ",
                   Icons.videogame_asset_rounded,
                   Colors.purple,
-                  () {}, // เชื่อมต่อหน้าเกมในภายหลัง
+                  () => Navigator.pushNamed(context, '/games'),
                 ),
                 _buildMenuButton(
                   context,

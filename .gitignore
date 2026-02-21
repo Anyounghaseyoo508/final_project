@@ -46,3 +46,6 @@ app.*.map.json
 
 # API Keys and Secrets
 .env
+
+# Tools
+.kiro
