@@ -46,3 +46,7 @@ app.*.map.json
 
 # API Keys and Secrets
 .env
+
+# ป้องกันไฟล์ตั้งค่า Google หลุด
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
