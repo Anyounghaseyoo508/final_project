@@ -1,44 +1,40 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // เปลี่ยนจาก Firebase
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // สำหรับโหลด Key
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'screens/login_screen.dart';
-import 'screens/users/dashboard_screen.dart';
+import 'screens/users/main_shell.dart'; // ① เพิ่ม
 import 'screens/users/ai_tutor_screen.dart';
-import 'screens/users/vocab_detail_screen.dart';
-import 'screens/users/study_history_screen.dart';
-import 'screens/admin/admin_exam_management_screen.dart';
-import 'screens/admin/admin_add_question_screen.dart';
+import 'screens/users/Vocabulary Learning/vocab_detail_screen.dart';
+import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart'; // ← เพิ่ม
+import 'screens/users/Exam Practice/screens/study_history_screen.dart';
+import 'screens/admin/Exam Management/screens/admin_exam_management_screen.dart';
+import 'screens/admin/Exam Management/screens/admin_add_question_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
 import 'screens/admin/admin_import_screen.dart';
 import 'screens/admin/admin_sheet_management_screen.dart';
-import 'screens/admin/AdminVocabScreen.dart';
-import 'screens/users/practice_exam_screen.dart';
-import 'screens/users/exam_list_screen.dart';
-import 'screens/users/games/games_menu_screen.dart';
-import 'screens/users/profile_screen.dart';
-import 'screens/users/statistics_screen.dart';
-import 'screens/admin/admin_monitoring_screen.dart';
+import 'screens/admin/Vocabbulary Management/screens/admin_vocab_screen.dart';
+import 'screens/users/Exam Practice/screens/practice_exam_screen.dart';
+
+// ลบ import ที่ MainShell จัดการแล้ว (ExamListScreen, GamesMenuScreen,
+// ProfileScreen, UserDashboardScreen) — ไม่จำเป็นต้อง import ที่นี่อีก
 
 void main() async {
-  // 1. ต้องมีบรรทัดนี้เพื่อให้ Flutter ทำงานกับ Native ได้ถูกต้อง
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. โหลดไฟล์ .env เพื่อเอาค่า URL และ Anon Key
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {
     debugPrint("Warning: Could not load .env file. Make sure it exists.");
   }
 
-  // 3. เริ่มต้นระบบ Supabase แทน Firebase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL'] ?? '',
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
-  runApp(const MyApp());
+  runApp(const MyApp()); // ② ลบ ThemeProvider ออก
 }
 
 class MyApp extends StatelessWidget {
@@ -49,8 +45,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'TOEIC VocabBoost',
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blueAccent),
-
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A56DB)),
+        scaffoldBackgroundColor: const Color(0xFFF8F9FC),
+      ),
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
@@ -61,19 +60,16 @@ class MyApp extends StatelessWidget {
         '/admin/import': (context) => const AdminImportScreen(),
         '/admin/sheets': (context) => const AdminSheetManagementScreen(),
         '/admin/vocab': (context) => const AdminVocabScreen(),
-        '/admin/monitoring': (context) => const AdminMonitoringScreen(),
         '/vocab-detail': (context) => const VocabDetailScreen(),
-        '/': (context) => const UserDashboardScreen(),
-        '/exam_list': (context) => const ExamListScreen(),
-        '/games': (context) => const GamesMenuScreen(),
-        '/profile': (context) => const ProfileScreen(),
-        '/statistics': (context) => const StatisticsScreen(),
-        '/practice_exam': (context) {
-          final testId = ModalRoute.of(context)!.settings.arguments as int;
-          return PracticeExamScreen(testId: testId);
-        },
+        '/bookmarks': (context) => const BookmarkListScreen(), // ← เพิ่ม
+        '/': (context) => const MainShell(), // ③ เปลี่ยนตรงนี้
         '/ai-tutor': (context) => const AiTutorScreen(),
         '/study-history': (context) => const StudyHistoryScreen(),
+        '/practice_exam': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments;
+          final testId = args is int ? args : 0;
+          return PracticeExamScreen(testId: testId);
+        },
       },
     );
   }
