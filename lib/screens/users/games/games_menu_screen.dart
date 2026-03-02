@@ -37,7 +37,8 @@ class GamesMenuScreen extends StatelessWidget {
               color: Colors.green,
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const SentenceCompletionScreen()),
+                MaterialPageRoute(
+                    builder: (_) => const SentenceCompletionScreen()),
               ),
             ),
             _gameCard(
@@ -49,6 +50,13 @@ class GamesMenuScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const WordSearchScreen()),
               ),
+            ),
+            _gameCard(
+              context,
+              title: 'Leaderboard',
+              icon: Icons.emoji_events,
+              color: Colors.deepPurple,
+              onTap: () => Navigator.pushNamed(context, '/games/leaderboard'),
             ),
           ],
         ),

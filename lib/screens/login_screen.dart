@@ -30,13 +30,24 @@ class _LoginScreenState extends State<LoginScreen> {
         // ดึงข้อมูล Role จากตาราง users
         final data = await _supabase
             .from('users')
-            .select('role')
+            .select('role, is_active')
             .eq('id', res.user!.id)
             .single();
 
         String role = data['role'] ?? 'user';
+        final isActive = data['is_active'] != false;
 
         if (mounted) {
+          if (!isActive) {
+            await _supabase.auth.signOut();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content:
+                      Text('บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ')),
+            );
+            return;
+          }
+
           if (role == 'admin') {
             Navigator.pushReplacementNamed(context, '/admin_home');
           } else {
@@ -59,6 +70,31 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("เข้าสู่ระบบไม่สำเร็จ: ${e.toString()}")),
+        );
+      }
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('กรอกอีเมลก่อนกดลืมรหัสผ่าน')),
+      );
+      return;
+    }
+
+    try {
+      await _supabase.auth.resetPasswordForEmail(email);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว')),
+        );
+      }
+    } on AuthException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ส่งลิงก์ไม่สำเร็จ: ${e.message}')),
         );
       }
     }
@@ -99,6 +135,10 @@ class _LoginScreenState extends State<LoginScreen> {
             TextButton(
               onPressed: () => Navigator.pushNamed(context, '/register'),
               child: const Text("ยังไม่มีบัญชี? สมัครสมาชิกใหม่"),
+            ),
+            TextButton(
+              onPressed: _forgotPassword,
+              child: const Text("ลืมรหัสผ่าน"),
             ),
           ],
         ),

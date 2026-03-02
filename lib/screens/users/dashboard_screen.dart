@@ -21,6 +21,10 @@ class UserDashboardScreen extends StatelessWidget {
             elevation: 0,
             actions: [
               IconButton(
+                icon: const Icon(Icons.notifications_none),
+                onPressed: () => Navigator.pushNamed(context, '/notifications'),
+              ),
+              IconButton(
                 icon: const Icon(Icons.person),
                 onPressed: () => Navigator.pushNamed(context, '/profile'),
               ),

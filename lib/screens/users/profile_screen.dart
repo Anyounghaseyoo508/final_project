@@ -13,7 +13,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _supabase = Supabase.instance.client;
   final _picker = ImagePicker();
-  
+
   String? _avatarUrl;
   String _displayName = '';
   bool _isLoading = true;
@@ -63,11 +63,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (user == null) return;
 
       final file = File(pickedFile.path);
-      final fileName = '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
       await _supabase.storage.from('avatars').upload(fileName, file);
 
-      final publicUrl = _supabase.storage.from('avatars').getPublicUrl(fileName);
+      final publicUrl =
+          _supabase.storage.from('avatars').getPublicUrl(fileName);
 
       await _supabase.from('users').update({
         'avatar_url': publicUrl,
@@ -143,6 +145,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _deactivateAccount() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ยืนยันการลบบัญชี'),
+        content: const Text(
+          'ระบบจะปิดการใช้งานบัญชีนี้ และคุณจะไม่สามารถเข้าสู่ระบบได้จนกว่าผู้ดูแลระบบจะเปิดใช้งานอีกครั้ง',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('ยืนยันลบบัญชี'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      await _supabase.from('users').update({
+        'is_active': false,
+      }).eq('id', user.id);
+
+      await _supabase.auth.signOut();
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ลบบัญชีไม่สำเร็จ: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,7 +218,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: CircleAvatar(
                           backgroundColor: Colors.blue,
                           child: IconButton(
-                            icon: const Icon(Icons.camera_alt, color: Colors.white),
+                            icon: const Icon(Icons.camera_alt,
+                                color: Colors.white),
                             onPressed: _pickImage,
                           ),
                         ),
@@ -206,13 +253,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   ListTile(
                     leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text('ออกจากระบบ', style: TextStyle(color: Colors.red)),
+                    title: const Text('ออกจากระบบ',
+                        style: TextStyle(color: Colors.red)),
                     onTap: () async {
                       await _supabase.auth.signOut();
                       if (mounted) {
                         Navigator.pushReplacementNamed(context, '/login');
                       }
                     },
+                  ),
+                  ListTile(
+                    leading:
+                        const Icon(Icons.delete_forever, color: Colors.red),
+                    title: const Text('ลบบัญชี',
+                        style: TextStyle(color: Colors.red)),
+                    subtitle: const Text('ปิดการใช้งานบัญชีนี้'),
+                    onTap: _deactivateAccount,
                   ),
                 ],
               ),
@@ -230,7 +286,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _supabase = Supabase.instance.client;
-  
+
   bool _notificationsEnabled = true;
   bool _soundEnabled = true;
   bool _darkMode = false;

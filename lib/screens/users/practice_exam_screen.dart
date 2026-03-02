@@ -36,6 +36,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
   PlayerState _playerState = PlayerState.stopped;
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
+  final DateTime _examStartedAt = DateTime.now();
 
   String? _currentGroupImageUrl;
   @override
@@ -51,8 +52,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
       if (!mounted ||
           _questions.isEmpty ||
           _currentIndex >= _questions.length ||
-          _isNavigating)
-        return;
+          _isNavigating) return;
 
       final currentQ = _questions[_currentIndex];
       final int partId = currentQ['part'] ?? 1;
@@ -280,9 +280,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
     setState(() {
       if (groupId != null && groupId.toString().isNotEmpty) {
         // 1. ดึงคำถามทั้งหมดในกลุ่ม
-        _currentGroupQuestions = _questions
-            .where((q) => q['passage_group_id'] == groupId)
-            .toList();
+        _currentGroupQuestions =
+            _questions.where((q) => q['passage_group_id'] == groupId).toList();
 
         // 2. ค้นหารูปภาพจากทุกข้อในกลุ่ม (หาข้อแรกที่มี image_url ไม่เป็นค่าว่าง)
         final firstWithImage = _currentGroupQuestions.firstWhere(
@@ -456,9 +455,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
             children: [
               CircleAvatar(
                 radius: 14,
-                backgroundColor: isSelected
-                    ? Colors.indigo
-                    : Colors.grey.shade200,
+                backgroundColor:
+                    isSelected ? Colors.indigo : Colors.grey.shade200,
                 child: Text(
                   key,
                   style: TextStyle(
@@ -632,18 +630,18 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
                             // เพิ่ม Error Builder เพื่อไม่ให้แอปค้างถ้ารูปเสีย
                             errorBuilder: (context, error, stackTrace) =>
                                 const Center(
-                                  child: Icon(
-                                    Icons.broken_image,
-                                    size: 50,
-                                    color: Colors.grey,
-                                  ),
-                                ),
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 50,
+                                color: Colors.grey,
+                              ),
+                            ),
                             loadingBuilder: (context, child, progress) =>
                                 progress == null
-                                ? child
-                                : const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
+                                    ? child
+                                    : const Center(
+                                        child: CircularProgressIndicator(),
+                                      ),
                           ),
                         ),
                       );
@@ -779,8 +777,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
                       // วนลูปถอยหลังไปจนถึงต้นกลุ่ม (Passage เดียวกัน)
                       while (_currentIndex > 0 &&
                           _questions[_currentIndex]['passage_group_id'] ==
-                              _questions[_currentIndex -
-                                  1]['passage_group_id']) {
+                              _questions[_currentIndex - 1]
+                                  ['passage_group_id']) {
                         _currentIndex--;
                       }
                       _updateCurrentGroup();
@@ -793,9 +791,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
                 child: const Text("Back"),
               ),
             ),
-
           if (canGoBack) const SizedBox(width: 15),
-
           Expanded(
             child: ElevatedButton(
               onPressed: _isNavigating ? null : () => _handleNextStep(),
@@ -938,8 +934,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
                         color: isCurrent
                             ? Colors.indigo
                             : (isAnswered
-                                  ? Colors.green.shade100
-                                  : Colors.grey.shade100),
+                                ? Colors.green.shade100
+                                : Colors.grey.shade100),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isLocked
@@ -1034,6 +1030,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
         'reading_raw': rRaw,
         'score': lRaw + rRaw,
         'total_questions': _questions.length,
+        'duration_seconds': DateTime.now().difference(_examStartedAt).inSeconds,
         'answers': _userAnswers.map(
           (k, v) => MapEntry(k.toString(), v),
         ), // เก็บคำตอบ JSONB
@@ -1047,18 +1044,16 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
       List<Future> skillUpdates = [];
       skillSummary.forEach((cat, stats) {
         skillUpdates.add(
-          _supabase
-              .rpc(
-                'update_user_skill_v2',
-                params: {
-                  // แนะนำให้สร้าง RPC ตัวใหม่ที่รับผลรวม
-                  'u_id': _supabase.auth.currentUser?.id,
-                  'cat': cat,
-                  'correct_count': stats['correct'],
-                  'total_count': stats['total'],
-                },
-              )
-              .catchError((e) => debugPrint("Skill Update Error: $e")),
+          _supabase.rpc(
+            'update_user_skill_v2',
+            params: {
+              // แนะนำให้สร้าง RPC ตัวใหม่ที่รับผลรวม
+              'u_id': _supabase.auth.currentUser?.id,
+              'cat': cat,
+              'correct_count': stats['correct'],
+              'total_count': stats['total'],
+            },
+          ).catchError((e) => debugPrint("Skill Update Error: $e")),
         );
       });
 
