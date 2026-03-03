@@ -4,8 +4,6 @@ import './dashboard_screen.dart';
 import './Exam Practice/screens/exam_list_screen.dart';
 import './Part Practice/screens/part_practice_selector_screen.dart';
 import './Vocabulary Learning/vocab_list_screen.dart';
-import './games/games_menu_screen.dart';
-import './profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -18,16 +16,14 @@ class _MainShellState extends State<MainShell> {
   int _idx = 2;
   static const _accent = Color(0xFF1A56DB);
 
-  final _pages = const [
-    _ExamHubScreen(),
-    VocabListScreen(),
-    UserDashboardScreen(),
-    GamesMenuScreen(),
-    ProfileScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final pages = [
+      const _ExamHubScreen(),
+      const VocabListScreen(),
+      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)),
+   
+    ];
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
@@ -36,7 +32,7 @@ class _MainShellState extends State<MainShell> {
     ));
 
     return Scaffold(
-      body: IndexedStack(index: _idx, children: _pages),
+      body: IndexedStack(index: _idx, children: pages),
       floatingActionButton: _HomeFAB(
         isActive: _idx == 2,
         accent: _accent,

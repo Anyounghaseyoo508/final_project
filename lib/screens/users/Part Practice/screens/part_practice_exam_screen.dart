@@ -457,8 +457,7 @@ class _PartPracticeExamScreenState extends State<PartPracticeExamScreen> {
 
   bool _hasPassage(Map<String, dynamic> q, int partId) {
     final t = q['transcript']?.toString() ?? '';
-    return t.isNotEmpty &&
-        (partId == 3 || partId == 4 || partId == 6 || partId == 7);
+    return t.isNotEmpty && (partId == 6 || partId == 7);
   }
 
   Widget _buildImage(Map<String, dynamic> q) {

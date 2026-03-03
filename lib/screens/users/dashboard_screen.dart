@@ -36,7 +36,8 @@ class _P {
 }
 
 class UserDashboardScreen extends StatefulWidget {
-  const UserDashboardScreen({super.key});
+  final VoidCallback? onGamesTap;
+  const UserDashboardScreen({super.key, this.onGamesTap});
 
   @override
   State<UserDashboardScreen> createState() => _UserDashboardScreenState();
@@ -171,6 +172,12 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 onBookmarkTap: () =>
                     Navigator.pushNamed(context, '/bookmarks')
                         .then((_) => _loadStats()),
+                onNotificationsTap: () =>
+                    Navigator.pushNamed(context, '/notifications'),
+                onProfileTap: () =>
+                    Navigator.pushNamed(context, '/profile'),
+                onStatisticsTap: () =>
+                    Navigator.pushNamed(context, '/statistics'),
               ),
             ),
             if (_isLoading)
@@ -657,12 +664,18 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
 class _StickyHeader extends SliverPersistentHeaderDelegate {
   final String userName;
   final int    bookmarkCount;
-  final VoidCallback onBookmarkTap;   // ← รับ callback จากภายนอก
+  final VoidCallback onBookmarkTap;
+  final VoidCallback onNotificationsTap;
+  final VoidCallback onProfileTap;
+  final VoidCallback onStatisticsTap;
 
   const _StickyHeader({
     required this.userName,
     required this.bookmarkCount,
     required this.onBookmarkTap,
+    required this.onNotificationsTap,
+    required this.onProfileTap,
+    required this.onStatisticsTap,
   });
 
   static const _max = 88.0;
@@ -672,8 +685,11 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
   @override double get minExtent => _min;
 
   @override
-  bool shouldRebuild(_StickyHeader old) =>
-      old.userName != userName || old.bookmarkCount != bookmarkCount;
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
+    return oldDelegate is _StickyHeader &&
+        (oldDelegate.userName != userName ||
+            oldDelegate.bookmarkCount != bookmarkCount);
+  }
 
   @override
   Widget build(BuildContext ctx, double shrink, bool overlaps) {
@@ -715,6 +731,13 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
                       ],
                     ),
             ),
+            // ── Action icons ─────────────────────────────────
+            _iconBtn(Icons.bar_chart_rounded,     onStatisticsTap),
+            const SizedBox(width: 8),
+            _iconBtn(Icons.person_outline_rounded, onProfileTap),
+            const SizedBox(width: 8),
+            _iconBtn(Icons.notifications_outlined, onNotificationsTap),
+            const SizedBox(width: 8),
             GestureDetector(
               onTap: onBookmarkTap,
               child: Stack(alignment: Alignment.topRight, children: [
@@ -749,6 +772,20 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
             ),
           ]),
         ),
+      ),
+    );
+  }
+  Widget _iconBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: _P.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _P.border),
+        ),
+        child: Icon(icon, color: _P.textSec, size: 20),
       ),
     );
   }
