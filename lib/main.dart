@@ -16,6 +16,14 @@ import 'screens/admin/admin_import_screen.dart';
 import 'screens/admin/admin_sheet_management_screen.dart';
 import 'screens/admin/Vocabbulary Management/screens/admin_vocab_screen.dart';
 import 'screens/users/Exam Practice/screens/practice_exam_screen.dart';
+import 'screens/users/games/games_menu_screen.dart';
+import 'screens/users/games/game_leaderboard_screen.dart';
+import 'screens/users/profile_screen.dart';
+import 'screens/users/statistics_screen.dart';
+import 'screens/users/notification_center_screen.dart';
+import 'screens/admin/admin_monitoring_screen.dart';
+import 'screens/admin/admin_user_management_screen.dart';
+import 'screens/admin/admin_notification_screen.dart';
 
 
 // ลบ import ที่ MainShell จัดการแล้ว (ExamListScreen, GamesMenuScreen,
@@ -56,14 +64,23 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/admin_home': (context) => const AdminHomeScreen(),
+        '/admin': (context) => const AdminHomeScreen(),
         '/admin/exams': (context) => const AdminExamManagementScreen(),
         '/admin/add': (context) => const AdminAddQuestionScreen(),
         '/admin/import': (context) => const AdminImportScreen(),
         '/admin/sheets': (context) => const AdminSheetManagementScreen(),
         '/admin/vocab': (context) => const AdminVocabScreen(),
+        '/admin/monitoring': (context) => const AdminMonitoringScreen(),
+        '/admin/users': (context) => const AdminUserManagementScreen(),
+        '/admin/notifications': (context) => const AdminNotificationScreen(),
         '/vocab-detail': (context) => const VocabDetailScreen(),
         '/bookmarks': (context) => const BookmarkListScreen(), // ← เพิ่ม
         '/': (context) => const MainShell(), // ③ เปลี่ยนตรงนี้
+        '/games': (context) => const GamesMenuScreen(),
+        '/games/leaderboard': (context) => const GameLeaderboardScreen(),
+        '/profile': (context) => const ProfileScreen(),
+        '/statistics': (context) => const StatisticsScreen(),
+        '/notifications': (context) => const NotificationCenterScreen(),
         '/ai-tutor': (context) => const AiTutorScreen(),
         '/study-history': (context) => const StudyHistoryScreen(),
         '/practice_exam': (context) {

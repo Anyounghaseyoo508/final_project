@@ -108,6 +108,9 @@ class _AdminSidebar extends StatelessWidget {
           _navItem(context, icon: Icons.quiz_rounded,        label: 'จัดการข้อสอบ',     route: '/admin/exams', highlight: true),
           _navItem(context, icon: Icons.library_books_rounded, label: 'ชีทสรุป',        route: '/admin/sheets'),
           _navItem(context, icon: Icons.translate_rounded,   label: 'คำศัพท์',          route: '/admin/vocab'),
+          _navItem(context, icon: Icons.analytics_rounded,   label: 'ติดตามผู้ใช้',      route: '/admin/monitoring'),
+          _navItem(context, icon: Icons.manage_accounts_rounded, label: 'จัดการผู้ใช้', route: '/admin/users'),
+          _navItem(context, icon: Icons.notifications_active_rounded, label: 'แจ้งเตือน', route: '/admin/notifications'),
 
           const Spacer(),
 
@@ -258,6 +261,30 @@ class _DashboardBody extends StatelessWidget {
       gradient: const LinearGradient(
           colors: [Color(0xFF00695C), Color(0xFF00897B)]),
       onTap: () => Navigator.pushNamed(context, '/admin/vocab'),
+    ),
+    _MenuItem(
+      icon: Icons.analytics_rounded,
+      title: 'ติดตามผู้ใช้',
+      subtitle: 'ดูสถิติและความคืบหน้าผู้เรียน',
+      gradient: const LinearGradient(
+          colors: [Color(0xFFC62828), Color(0xFFE53935)]),
+      onTap: () => Navigator.pushNamed(context, '/admin/monitoring'),
+    ),
+    _MenuItem(
+      icon: Icons.manage_accounts_rounded,
+      title: 'จัดการผู้ใช้',
+      subtitle: 'เพิ่ม แก้ไข และกำหนดสิทธิ์ผู้ใช้',
+      gradient: const LinearGradient(
+          colors: [Color(0xFF283593), Color(0xFF3949AB)]),
+      onTap: () => Navigator.pushNamed(context, '/admin/users'),
+    ),
+    _MenuItem(
+      icon: Icons.notifications_active_rounded,
+      title: 'ส่งแจ้งเตือน',
+      subtitle: 'กระจายประกาศไปยังผู้ใช้งาน',
+      gradient: const LinearGradient(
+          colors: [Color(0xFFEF6C00), Color(0xFFFF8F00)]),
+      onTap: () => Navigator.pushNamed(context, '/admin/notifications'),
     ),
   ];
 }

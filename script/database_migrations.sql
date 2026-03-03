@@ -1,4 +1,4 @@
-# SQL สำหรับสร้างตารางใหม่ที่จำเป็น
+-- SQL สำหรับสร้างตารางใหม่ที่จำเป็น
 
 -- ตาราง game_scores สำหรับเก็บคะแนนเกม
 CREATE TABLE IF NOT EXISTS game_scores (
@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS user_issues (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sign_in_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
+-- เพิ่มคอลัมน์สำหรับวิเคราะห์เวลาในการทำข้อสอบ
+ALTER TABLE exam_submissions ADD COLUMN IF NOT EXISTS duration_seconds INTEGER;
 
 -- สร้าง storage bucket สำหรับ avatars
 INSERT INTO storage.buckets (id, name, public)
@@ -40,14 +44,17 @@ VALUES ('avatars', 'avatars', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Policy สำหรับ avatars bucket
+DROP POLICY IF EXISTS "Avatar images are publicly accessible" ON storage.objects;
 CREATE POLICY "Avatar images are publicly accessible"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'avatars');
 
+DROP POLICY IF EXISTS "Users can upload their own avatar" ON storage.objects;
 CREATE POLICY "Users can upload their own avatar"
 ON storage.objects FOR INSERT
 WITH CHECK (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
 
+DROP POLICY IF EXISTS "Users can update their own avatar" ON storage.objects;
 CREATE POLICY "Users can update their own avatar"
 ON storage.objects FOR UPDATE
 USING (bucket_id = 'avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
@@ -58,36 +65,69 @@ CREATE INDEX IF NOT EXISTS idx_game_scores_created_at ON game_scores(created_at 
 CREATE INDEX IF NOT EXISTS idx_user_issues_user_id ON user_issues(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_issues_status ON user_issues(status);
 
+-- ตารางแจ้งเตือนผู้ใช้จากแอดมิน
+CREATE TABLE IF NOT EXISTS user_notifications (
+  id BIGSERIAL PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_notifications_user_id ON user_notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_notifications_created_at ON user_notifications(created_at DESC);
+
 -- RLS Policies
 ALTER TABLE game_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_issues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own game scores" ON game_scores;
 CREATE POLICY "Users can view their own game scores"
 ON game_scores FOR SELECT
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own game scores" ON game_scores;
 CREATE POLICY "Users can insert their own game scores"
 ON game_scores FOR INSERT
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view their own settings" ON user_settings;
 CREATE POLICY "Users can view their own settings"
 ON user_settings FOR SELECT
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own settings" ON user_settings;
 CREATE POLICY "Users can update their own settings"
 ON user_settings FOR ALL
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view their own issues" ON user_issues;
 CREATE POLICY "Users can view their own issues"
 ON user_issues FOR SELECT
 USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own issues" ON user_issues;
 CREATE POLICY "Users can insert their own issues"
 ON user_issues FOR INSERT
 WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view their own notifications" ON user_notifications;
+CREATE POLICY "Users can view their own notifications"
+ON user_notifications FOR SELECT
+USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update read status of own notifications" ON user_notifications;
+CREATE POLICY "Users can update read status of own notifications"
+ON user_notifications FOR UPDATE
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
 -- Admin policies
+DROP POLICY IF EXISTS "Admins can view all game scores" ON game_scores;
 CREATE POLICY "Admins can view all game scores"
 ON game_scores FOR SELECT
 USING (
@@ -97,8 +137,39 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Admins can view all issues" ON user_issues;
 CREATE POLICY "Admins can view all issues"
 ON user_issues FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid() AND users.role = 'admin'
+  )
+);
+
+DROP POLICY IF EXISTS "Admins can manage all users" ON users;
+CREATE POLICY "Admins can manage all users"
+ON users FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM users u
+    WHERE u.id = auth.uid() AND u.role = 'admin'
+  )
+);
+
+DROP POLICY IF EXISTS "Admins can insert notifications" ON user_notifications;
+CREATE POLICY "Admins can insert notifications"
+ON user_notifications FOR INSERT
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM users
+    WHERE users.id = auth.uid() AND users.role = 'admin'
+  )
+);
+
+DROP POLICY IF EXISTS "Admins can view all notifications" ON user_notifications;
+CREATE POLICY "Admins can view all notifications"
+ON user_notifications FOR SELECT
 USING (
   EXISTS (
     SELECT 1 FROM users
