@@ -5,7 +5,6 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'screens/login_screen.dart';
 import './splash_screen.dart'; // ← เพิ่ม import SplashScreen
 import 'screens/users/main_shell.dart';
-import 'screens/users/ai_tutor_screen.dart';
 import 'screens/users/Vocabulary Learning/vocab_detail_screen.dart';
 import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart';
 import 'screens/users/Exam Practice/screens/study_history_screen.dart';
@@ -87,7 +86,6 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const ProfileScreen(),
         '/statistics': (context) => const StatisticsScreen(),
         '/notifications': (context) => const NotificationCenterScreen(),
-        '/ai-tutor': (context) => const AiTutorScreen(),
         '/study-history': (context) => const StudyHistoryScreen(),
         '/practice_exam': (context) {
           final args = ModalRoute.of(context)?.settings.arguments;

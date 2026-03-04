@@ -55,9 +55,11 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text(
-          "Result Details",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          widget.questions.isNotEmpty
+              ? (widget.questions.first['title'] ?? "Result Details")
+              : "Result Details",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         elevation: 0,

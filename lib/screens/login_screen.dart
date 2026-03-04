@@ -49,10 +49,17 @@ class _LoginScreenState extends State<LoginScreen> {
           }
 
           if (role == 'admin') {
-            Navigator.pushReplacementNamed(context, '/admin_home');
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/admin_home',
+              (route) => false, // ล้าง navigation stack ทั้งหมด
+            );
           } else {
-            // หากเป็น user ปกติ ให้ไปที่หน้าที่คุณกำหนดไว้ (เช่นหน้าแรก)
-            Navigator.pushReplacementNamed(context, '/');
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (route) => false, // ล้าง navigation stack ทั้งหมด
+            );
           }
         }
       }

@@ -234,8 +234,20 @@ class PracticeExamController extends ChangeNotifier {
       partDirections = {
         for (var v in responses[0]) int.parse(v['part_id'].toString()): v,
       };
-      questions = List<Map<String, dynamic>>.from(responses[1]);
+      final rawQuestions = List<Map<String, dynamic>>.from(responses[1]);
       allPassageImages = List<Map<String, dynamic>>.from(responses[2]);
+
+      // Attach passages เข้าไปใน question แต่ละข้อ เพื่อให้ ExplanationDetailController ดึงรูปได้ครบ
+      questions = rawQuestions.map((q) {
+        final groupId = q['passage_group_id'];
+        if (groupId != null && groupId.toString().isNotEmpty) {
+          final passages = allPassageImages
+              .where((p) => p['passage_group_id'] == groupId.toString())
+              .toList();
+          return {...q, 'passages': passages};
+        }
+        return q;
+      }).toList();
       isLoading = false;
       currentIndex = 0;
       updateCurrentGroup();
@@ -397,22 +409,13 @@ class PracticeExamController extends ChangeNotifier {
   Future<void> submitExam() async {
     int lRaw = 0;
     int rRaw = 0;
-    Map<String, Map<String, int>> skillSummary = {};
 
     for (int i = 0; i < questions.length; i++) {
       final q = questions[i];
       final userAnswer = userAnswers[i];
       final bool isCorrect = userAnswer != null && userAnswer == q['correct_answer'];
-      final String category = q['category'] ?? 'General';
-
       if (isCorrect) {
         if ((q['part'] ?? 1) <= 4) lRaw++; else rRaw++;
-      }
-
-      skillSummary.putIfAbsent(category, () => {'correct': 0, 'total': 0});
-      skillSummary[category]!['total'] = skillSummary[category]!['total']! + 1;
-      if (isCorrect) {
-        skillSummary[category]!['correct'] = skillSummary[category]!['correct']! + 1;
       }
     }
 
@@ -424,10 +427,10 @@ class PracticeExamController extends ChangeNotifier {
           .eq('raw_score', rRaw).maybeSingle(),
     ]);
 
-    final lToeic   = (convResults[0]?['listening_score'] as int?) ?? lRaw;
-    final rToeic   = (convResults[1]?['reading_score']   as int?) ?? rRaw;
-    final total    = lToeic + rToeic;
-    final level    = _proficiencyLevel(total);
+    final lToeic = (convResults[0]?['listening_score'] as int?) ?? lRaw;
+    final rToeic = (convResults[1]?['reading_score']   as int?) ?? rRaw;
+    final total  = lToeic + rToeic;
+    final level  = _proficiencyLevel(total);
 
     await _supabase.from('exam_submissions').insert({
       'user_id':            _supabase.auth.currentUser?.id,
@@ -438,23 +441,11 @@ class PracticeExamController extends ChangeNotifier {
       'total_questions':    questions.length,
       'answers':            userAnswers.map((k, v) => MapEntry(k.toString(), v)),
       'questions_snapshot': questions,
-      // ── scaled scores + level ─────────────────────────────────
-      'l_toeic':     lToeic,
-      'r_toeic':     rToeic,
-      'total_score': total,
-      'cefr_level':  level,
+      'l_toeic':            lToeic,
+      'r_toeic':            rToeic,
+      'total_score':        total,
+      'cefr_level':         level,
     });
-
-    final skillUpdates = skillSummary.entries.map((e) =>
-      _supabase.rpc('update_user_skill_v2', params: {
-        'u_id': _supabase.auth.currentUser?.id,
-        'cat': e.key,
-        'correct_count': e.value['correct'],
-        'total_count': e.value['total'],
-      }).catchError((e) => debugPrint("Skill Update Error: $e")),
-    );
-
-    await Future.wait(skillUpdates).timeout(const Duration(seconds: 5));
 
     // แจ้ง UI ว่า submit เสร็จแล้ว ให้ navigate ไปหน้าผล
     onSubmitComplete?.call();

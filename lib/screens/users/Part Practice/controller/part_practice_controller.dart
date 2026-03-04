@@ -96,10 +96,29 @@ class PartSelectorController extends ChangeNotifier {
     try {
       final userId = _supabase.auth.currentUser?.id;
 
+      // ดึง test_id ที่ is_published = true จาก exam_sets ก่อน
+      final publishedRows = await _supabase
+          .from('exam_sets')
+          .select('test_id')
+          .eq('is_published', true);
+      final publishedIds = (publishedRows as List)
+          .map((r) => (r['test_id'] as num).toInt())
+          .toList();
+
+      if (publishedIds.isEmpty) {
+        partTitles     = {};
+        availableParts = [];
+        bestScores     = {};
+        isLoading      = false;
+        _notify();
+        return;
+      }
+
       final futures = await Future.wait([
         _supabase
             .from('practice_test')
             .select('part, title, test_id')
+            .inFilter('test_id', publishedIds)
             .order('part', ascending: true)
             .order('title', ascending: true),
         if (userId != null)
@@ -189,14 +208,60 @@ class PartPracticeController extends ChangeNotifier {
 
   Future<void> _fetchQuestions() async {
     try {
-      final rows = await _supabase
+      // ตรวจว่า test_id นี้ is_published จริงก่อน
+      final testRow = await _supabase
           .from('practice_test')
-          .select()
+          .select('test_id')
           .eq('part', selectedPart)
           .eq('title', selectedTitle)
-          .order('question_no', ascending: true);
+          .limit(1)
+          .maybeSingle();
 
-      questions = List<Map<String, dynamic>>.from(rows);
+      if (testRow != null) {
+        final tid = (testRow['test_id'] as num?)?.toInt();
+        if (tid != null) {
+          final pub = await _supabase
+              .from('exam_sets')
+              .select('is_published')
+              .eq('test_id', tid)
+              .maybeSingle();
+          if (pub == null || pub['is_published'] != true) {
+            error = 'ชุดข้อสอบนี้ยังไม่เปิดให้ใช้งาน';
+            isLoading = false;
+            _notify();
+            return;
+          }
+        }
+      }
+
+      final results = await Future.wait([
+        _supabase
+            .from('practice_test')
+            .select()
+            .eq('part', selectedPart)
+            .eq('title', selectedTitle)
+            .order('question_no', ascending: true),
+        _supabase
+            .from('passages')
+            .select()
+            .order('sequence', ascending: true),
+      ]);
+
+      final rawQuestions = List<Map<String, dynamic>>.from(results[0]);
+      final allPassages  = List<Map<String, dynamic>>.from(results[1]);
+
+      // attach passages เข้าไปใน question ที่มี passage_group_id
+      questions = rawQuestions.map((q) {
+        final groupId = q['passage_group_id']?.toString() ?? '';
+        if (groupId.isNotEmpty) {
+          final grouped = allPassages
+              .where((p) => p['passage_group_id']?.toString() == groupId)
+              .toList();
+          return {...q, 'passages': grouped};
+        }
+        return q;
+      }).toList();
+
       isLoading = false;
       _notify();
     } catch (e) {

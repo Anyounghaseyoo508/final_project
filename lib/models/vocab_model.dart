@@ -31,7 +31,7 @@ class Vocabulary {
     return Vocabulary(
       headword:       s(data['headword']).isEmpty ? 'N/A' : s(data['headword']),
       cefr:           s(data['CEFR']).isEmpty ? '-' : s(data['CEFR']),
-      pos:            s(data['POS']),
+      pos:            s(data['pos']),
       readingEn:      s(data['Reading_EN']),   // ✅ map จาก Supabase column
       readingTh:      s(data['Reading_TH']),   // ✅ map จาก Supabase column
       translationTH:  s(data['Translation_TH']),

@@ -25,19 +25,29 @@ class _PartPracticeResultScreenState extends State<PartPracticeResultScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.indigo,
         elevation: 0,
-        automaticallyImplyLeading: _reviewIndex != null,
-        title: Text(
-          _reviewIndex == null
-              ? 'ผลการทำข้อสอบ'
-              : 'เฉลยข้อ ${r.questions[_reviewIndex!]['question_no']}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        automaticallyImplyLeading: false,
         leading: _reviewIndex != null
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                 onPressed: () => setState(() => _reviewIndex = null),
               )
             : null,
+        title: _reviewIndex == null
+            ? const Text(
+                'ผลการทำข้อสอบ',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              )
+            : Row(children: [
+                Expanded(
+                  child: Text(
+                    'เฉลยข้อ ${r.questions[_reviewIndex!]['question_no']}  ·  ${r.questions[_reviewIndex!]['category'] ?? ''}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ]),
       ),
       body: _reviewIndex == null ? _buildSummary() : _buildReview(_reviewIndex!),
     );

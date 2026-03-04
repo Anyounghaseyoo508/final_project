@@ -108,7 +108,15 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
           ),
         ),
         title: Text(
-          "Practice Test #${item['test_id']}",
+          () {
+            try {
+              final snapshot = item['questions_snapshot'];
+              if (snapshot != null && snapshot is List && snapshot.isNotEmpty) {
+                return snapshot.first['title']?.toString() ?? "Practice Test #${item['test_id']}";
+              }
+            } catch (_) {}
+            return "Practice Test #${item['test_id']}";
+          }(),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: Column(

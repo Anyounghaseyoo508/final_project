@@ -213,8 +213,7 @@ class _AdminSidebar extends StatelessWidget {
           _navItem(context,
               icon: Icons.quiz_rounded,
               label: 'จัดการข้อสอบ',
-              route: '/admin/exams',
-              highlight: true),
+              route: '/admin/exams'),
           _navItem(context,
               icon: Icons.library_books_rounded,
               label: 'ชีทสรุป',
@@ -255,7 +254,6 @@ class _AdminSidebar extends StatelessWidget {
     required IconData icon,
     required String label,
     required String route,
-    bool highlight = false,
   }) {
     final currentRoute = ModalRoute.of(context)?.settings.name ?? '';
     final isActive = currentRoute == route ||
@@ -291,17 +289,6 @@ class _AdminSidebar extends StatelessWidget {
                     fontWeight:
                         isActive ? FontWeight.bold : FontWeight.normal,
                     fontSize: 13)),
-            if (highlight && !isActive) ...[
-              const Spacer(),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: Colors.orangeAccent,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ],
           ]),
         ),
       ),
@@ -334,11 +321,10 @@ class _DashboardBody extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         color: const Color(0xFF1E3A5F))),
                 const SizedBox(height: 4),
-                Text('Admin Panel — TOEIC Practice System',
+                Text('Admin Panel',
                     style:
                         TextStyle(fontSize: 13, color: Colors.grey.shade500)),
               ])),
-          if (!isWide) _LogoutButton(),
         ]),
         const SizedBox(height: 28),
 
