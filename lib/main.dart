@@ -3,10 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'screens/login_screen.dart';
-import 'screens/users/main_shell.dart'; // ① เพิ่ม
+import './splash_screen.dart'; // ← เพิ่ม import SplashScreen
+import 'screens/users/main_shell.dart';
 import 'screens/users/ai_tutor_screen.dart';
 import 'screens/users/Vocabulary Learning/vocab_detail_screen.dart';
-import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart'; // ← เพิ่ม
+import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart';
 import 'screens/users/Exam Practice/screens/study_history_screen.dart';
 import 'screens/admin/Exam Management/screens/admin_exam_management_screen.dart';
 import 'screens/admin/Exam Management/screens/admin_add_question_screen.dart';
@@ -25,10 +26,6 @@ import 'screens/admin/admin_monitoring_screen.dart';
 import 'screens/admin/admin_user_management_screen.dart';
 import 'screens/admin/admin_notification_screen.dart';
 
-
-// ลบ import ที่ MainShell จัดการแล้ว (ExamListScreen, GamesMenuScreen,
-// ProfileScreen, UserDashboardScreen) — ไม่จำเป็นต้อง import ที่นี่อีก
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -43,7 +40,7 @@ void main() async {
     anonKey: dotenv.env['SUPABASE_ANON_KEY'] ?? '',
   );
 
-  runApp(const MyApp()); // ② ลบ ThemeProvider ออก
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -59,8 +56,17 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A56DB)),
         scaffoldBackgroundColor: const Color(0xFFF8F9FC),
       ),
-      initialRoute: '/login',
+
+      // ── เปลี่ยน initialRoute จาก '/login' เป็น '/splash' ──────────────────
+      // เหตุผล: ทุกครั้งที่เปิดแอป ให้ผ่าน SplashScreen ก่อนเสมอ
+      // SplashScreen จะตรวจว่ามี session ค้างอยู่ไหม แล้ว redirect เอง
+      // ถ้าไม่มี session → ไป /login  |  ถ้ามี → ไป / หรือ /admin_home
+      initialRoute: '/splash', // ← เปลี่ยนจาก '/login'
+
       routes: {
+        // ── เพิ่ม route ของ SplashScreen ────────────────────────────────────
+        '/splash': (context) => const SplashScreen(), // ← เพิ่มใหม่
+
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
         '/admin_home': (context) => const AdminHomeScreen(),
@@ -74,8 +80,8 @@ class MyApp extends StatelessWidget {
         '/admin/users': (context) => const AdminUserManagementScreen(),
         '/admin/notifications': (context) => const AdminNotificationScreen(),
         '/vocab-detail': (context) => const VocabDetailScreen(),
-        '/bookmarks': (context) => const BookmarkListScreen(), // ← เพิ่ม
-        '/': (context) => const MainShell(), // ③ เปลี่ยนตรงนี้
+        '/bookmarks': (context) => const BookmarkListScreen(),
+        '/': (context) => const MainShell(),
         '/games': (context) => const GamesMenuScreen(),
         '/games/leaderboard': (context) => const GameLeaderboardScreen(),
         '/profile': (context) => const ProfileScreen(),
@@ -88,7 +94,6 @@ class MyApp extends StatelessWidget {
           final testId = args is int ? args : 0;
           return PracticeExamScreen(testId: testId);
         },
-  
       },
     );
   }

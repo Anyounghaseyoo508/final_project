@@ -1,0 +1,128 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SplashScreen — หน้าแรกที่เปิดขึ้นมาทุกครั้งที่เปิดแอป
+// หน้าที่: ตรวจว่ามี session ค้างอยู่ไหม แล้ว redirect ไปหน้าที่ถูกต้อง
+// ผู้ใช้จะเห็นหน้านี้แค่ชั่วครู่ (loading spinner) แล้วหายไปเลย
+// ──────────────────────────────────────────────────────────────────────────────
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // เรียกตรวจ session ทันทีที่หน้านี้โหลด
+    _checkSession();
+  }
+
+  Future<void> _checkSession() async {
+    // หน่วงเล็กน้อยให้ Flutter render UI ก่อน (ป้องกัน navigator error)
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    final supabase = Supabase.instance.client;
+
+    // ── ตรวจว่ามี session ค้างอยู่ไหม ──────────────────────────────────────
+    // currentSession จะ return null ถ้าไม่เคย login หรือ logout ไปแล้ว
+    // ถ้ามี session Supabase จะ auto-refresh token ให้อัตโนมัติ
+    final session = supabase.auth.currentSession;
+    
+    if (!mounted) return;
+
+    if (session == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    // ── มี session → ดึง role และ is_active จากตาราง users ─────────────────
+    try {
+      final data = await supabase
+          .from('users')
+          .select('role, is_active')
+          .eq('id', session.user.id)
+          .single();
+
+      final role = data['role'] ?? 'user';
+      final isActive = data['is_active'] != false;
+
+      if (!mounted) return;
+
+      // ── บัญชีถูกปิด → logout แล้วไป Login ─────────────────────────────────
+      if (!isActive) {
+        await supabase.auth.signOut();
+        if (mounted) Navigator.pushReplacementNamed(context, '/login');
+        return;
+      }
+
+      // ── Admin: ตรวจ session timeout ────────────────────────────────────────
+      // Admin ใช้บนเว็บ ควรมีการ timeout เพื่อความปลอดภัย
+      if (role == 'admin') {
+        final lastSignInStr = session.user.lastSignInAt;
+
+        if (lastSignInStr != null) {
+          final lastSignIn = DateTime.parse(lastSignInStr);
+          final elapsed = DateTime.now().toUtc().difference(lastSignIn);
+
+          // ถ้า login มานานเกิน 8 ชั่วโมง (ไม่ได้ใช้งาน) → บังคับ logout
+          // เปลี่ยน inHours เป็น inMinutes ถ้าอยากให้ timeout เร็วกว่านี้
+          if (elapsed.inHours >= 8) {
+            await supabase.auth.signOut();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                    content: Text('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่')),
+              );
+              Navigator.pushReplacementNamed(context, '/login');
+            }
+            return;
+          }
+        }
+
+        // Admin session ยังใช้ได้ → ไปหน้า Admin
+        Navigator.pushReplacementNamed(context, '/admin_home');
+      } else {
+        // ── User ปกติ: ไม่มี timeout → เข้าแอปเลย ───────────────────────────
+        // Supabase จะ refresh token ให้อัตโนมัติ user ไม่ต้อง login ใหม่
+        Navigator.pushReplacementNamed(context, '/');
+      }
+    } catch (e) {
+      // ถ้าดึงข้อมูลไม่ได้ (เช่น ไม่มี internet) → ไปหน้า Login
+      if (mounted) Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // UI ของ SplashScreen — แค่ loading spinner ตรงกลาง
+    // ผู้ใช้จะเห็นแค่ชั่วครู่แล้วหายไปเลย
+    return const Scaffold(
+      backgroundColor: Color(0xFF1E3A5F), // สีเดียวกับ Admin sidebar
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo
+            Icon(Icons.school_rounded, size: 64, color: Colors.white),
+            SizedBox(height: 16),
+            Text(
+              'VocabBoost',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 32),
+            // Loading spinner
+            CircularProgressIndicator(color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+}

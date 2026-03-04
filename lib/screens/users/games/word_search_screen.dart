@@ -28,7 +28,7 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
   Future<void> _loadGame() async {
     try {
       final response = await _supabase
-          .from('vocabulary')
+          .from('vocabularies')
           .select('headword')
           .limit(5);
 

@@ -4,6 +4,8 @@ import './dashboard_screen.dart';
 import './Exam Practice/screens/exam_list_screen.dart';
 import './Part Practice/screens/part_practice_selector_screen.dart';
 import './Vocabulary Learning/vocab_list_screen.dart';
+import '../users/games/games_menu_screen.dart';
+import './profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -19,10 +21,11 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const _ExamHubScreen(),
-      const VocabListScreen(),
-      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)),
-   
+      const _ExamHubScreen(), // 0
+      const VocabListScreen(), // 1
+      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)), // 2
+      const GamesMenuScreen(), // 3 ← เพิ่ม
+      const ProfileScreen(), // 4 ← เพิ่ม (ถ้ามี)
     ];
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -68,7 +71,7 @@ class _HomeFAB extends StatelessWidget {
         height: 58,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white, 
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: accent.withOpacity(isActive ? 0.35 : 0.15),
@@ -79,12 +82,14 @@ class _HomeFAB extends StatelessWidget {
           // ── เอาขอบสีน้ำเงินออกแล้วครับ ───────────────────────
           border: isActive
               ? null // ตอนที่ถูกเลือกจะไม่มีขอบ
-              : Border.all(color: const Color(0xFFE2E8F0), width: 1.5), // ขอบเทาตอนไม่ได้เลือก
+              : Border.all(
+                  color: const Color(0xFFE2E8F0),
+                  width: 1.5), // ขอบเทาตอนไม่ได้เลือก
         ),
         child: Center(
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: isActive ? 1.0 : 0.45, 
+            opacity: isActive ? 1.0 : 0.45,
             child: Image.asset(
               'assets/icons/icons8-home-100.png', // อย่าลืมแก้ให้ตรงกับชื่อไฟล์ของคุณนะครับ
               width: 28,
@@ -156,7 +161,9 @@ class _NavBar extends StatelessWidget {
               // ── แก้ไขส่วนนี้เพื่อโชว์สีรูปต้นฉบับ ───────────────────────
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                opacity: sel ? 1.0 : 0.45, // ถ้าเลือกจะสีสด 100% ถ้าไม่ได้เลือกจะจางลง
+                opacity: sel
+                    ? 1.0
+                    : 0.45, // ถ้าเลือกจะสีสด 100% ถ้าไม่ได้เลือกจะจางลง
                 child: Image.asset(
                   tab.imagePath,
                   width: 24,

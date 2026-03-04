@@ -31,7 +31,7 @@ class _MatchingGameScreenState extends State<MatchingGameScreen> {
   Future<void> _loadGame() async {
     try {
       final response = await _supabase
-          .from('vocabulary')
+          .from('vocabularies')
           .select('headword, Translation_TH')
           .limit(6);
 
