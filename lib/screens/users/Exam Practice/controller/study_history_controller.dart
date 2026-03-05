@@ -24,46 +24,20 @@ class StudyHistoryController extends ChangeNotifier {
     }
   }
 
-  /// ดึงข้อสอบ + รูป passage แบบ manual join แล้วคืนค่ากลับให้ UI navigate
-  Future<List<Map<String, dynamic>>> fetchQuestionsWithPassages(
-      int testId) async {
-    // ขั้นตอนที่ 1: ดึงข้อสอบทั้งหมดของ test_id นี้
-    final questionsResponse = await _supabase
-        .from('practice_test')
-        .select('*')
-        .eq('test_id', testId)
-        .order('question_no');
-
-    List<Map<String, dynamic>> questions =
-        List<Map<String, dynamic>>.from(questionsResponse);
-
-    // ขั้นตอนที่ 2: รวบรวม passage_group_id ที่ต้องใช้ไปดึงรูป
-    final groupIds = questions
-        .map((q) => q['passage_group_id'])
-        .where((id) => id != null)
-        .toSet()
-        .toList();
-
-    if (groupIds.isNotEmpty) {
-      // ดึงรูปภาพทั้งหมดจากตาราง passages ที่ตรงกับ groupIds
-      final passagesResponse = await _supabase
-          .from('passages')
-          .select('*')
-          .inFilter('passage_group_id', groupIds);
-
-      final List<Map<String, dynamic>> allPassages =
-          List<Map<String, dynamic>>.from(passagesResponse);
-
-      // นำรูปภาพกลับมาใส่ในแต่ละข้อสอบ (Manual Join)
-      for (var q in questions) {
-        if (q['passage_group_id'] != null) {
-          q['passages'] = allPassages
-              .where((p) => p['passage_group_id'] == q['passage_group_id'])
-              .toList();
-        }
+  /// ใช้ questions_snapshot ที่บันทึกตอนสอบ — ถูกต้องกว่าดึงใหม่จาก DB
+  /// เพราะ index ของ userAnswers ตรงกับ snapshot ที่บันทึกไว้เสมอ
+  List<Map<String, dynamic>> getQuestionsFromSnapshot(
+      Map<String, dynamic> item) {
+    try {
+      final snapshot = item['questions_snapshot'];
+      if (snapshot != null && snapshot is List && snapshot.isNotEmpty) {
+        return List<Map<String, dynamic>>.from(
+          snapshot.map((q) => Map<String, dynamic>.from(q)),
+        );
       }
+    } catch (e) {
+      debugPrint('Error parsing snapshot: $e');
     }
-
-    return questions;
+    return [];
   }
 }

@@ -64,6 +64,35 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
   //  WIDGETS
   // ─────────────────────────────────────────────────────────────
 
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) return '\${h}h \${m}m \${s}s';
+    return '\${m}m \${s}s';
+  }
+
+  String _cefrFromToeic(int total, int listening, int reading) {
+    if (total >= 945 && listening >= 490 && reading >= 455) return 'C1';
+    if (total >= 785 && listening >= 400 && reading >= 385) return 'B2';
+    if (total >= 550 && listening >= 275 && reading >= 275) return 'B1';
+    if (total >= 225 && listening >= 110 && reading >= 115) return 'A2';
+    if (total >= 120 && listening >= 60  && reading >= 60)  return 'A1';
+    return '-';
+  }
+
+  Color _cefrColor(String cefr) {
+    switch (cefr) {
+      case 'C1': return Colors.indigo.shade700;
+      case 'B2': return Colors.green.shade700;
+      case 'B1': return Colors.blue.shade700;
+      case 'A2': return Colors.orange.shade700;
+      case 'A1': return Colors.red.shade700;
+      default:   return Colors.grey;
+    }
+  }
+
   Widget _buildHistoryCard(Map<String, dynamic> item) {
     final DateTime createdAt = DateTime.parse(item['created_at']).toLocal();
     final String formattedDate =
@@ -156,41 +185,28 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
     );
   }
 
-  /// จัดการ onTap ของ card — แสดง loading แล้วเรียก Controller ดึงข้อมูล
-  Future<void> _onTapHistoryCard(Map<String, dynamic> item) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator()),
-    );
+  /// จัดการ onTap — ใช้ questions_snapshot ที่บันทึกตอนสอบโดยตรง
+  void _onTapHistoryCard(Map<String, dynamic> item) {
+    final questions = _ctrl.getQuestionsFromSnapshot(item);
 
-    try {
-      final questions = await _ctrl.fetchQuestionsWithPassages(
-        item['test_id'] as int,
+    if (questions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("ไม่พบข้อมูลข้อสอบ")),
       );
-
-      if (!mounted) return;
-      Navigator.pop(context); // ปิด Loading
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => ExamResultScreen(
-            questions: questions,
-            userAnswers: item['answers'] ?? {},
-            isHistoryView: true,
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) Navigator.pop(context);
-      debugPrint("Fetch Error: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("เกิดข้อผิดพลาดในการโหลดข้อมูล: $e")),
-        );
-      }
+      return;
     }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExamResultScreen(
+          questions: questions,
+          userAnswers: item['answers'] ?? {},
+          isHistoryView: true,
+          durationSeconds: item['duration_seconds'] ?? 0,
+        ),
+      ),
+    );
   }
 
   Widget _buildEmptyState() {

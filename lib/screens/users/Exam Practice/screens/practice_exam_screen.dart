@@ -13,7 +13,8 @@ class PracticeExamScreen extends StatefulWidget {
   State<PracticeExamScreen> createState() => _PracticeExamScreenState();
 }
 
-class _PracticeExamScreenState extends State<PracticeExamScreen> {
+class _PracticeExamScreenState extends State<PracticeExamScreen>
+    with WidgetsBindingObserver {
   // ── Controller (Logic อยู่ในนี้ทั้งหมด) ──────────────────────
   late final PracticeExamController _ctrl;
 
@@ -24,10 +25,10 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _ctrl = PracticeExamController(
       testId: widget.testId,
       onSubmitComplete: () {
-        // Controller เรียก callback นี้หลัง submit เสร็จ → navigate ไปหน้าผล
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -35,20 +36,59 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
             builder: (_) => ExamResultScreen(
               questions: _ctrl.questions,
               userAnswers: _ctrl.userAnswers,
+              durationSeconds: _ctrl.elapsedSeconds,
             ),
           ),
         );
       },
     );
-    // ฟัง Controller แล้ว rebuild UI
     _ctrl.addListener(() {
       if (mounted) setState(() {});
     });
-    // ฟัง error จาก fetchAllData
-    _ctrl.fetchAllData().catchError((e) {
+    // เช็ค session ค้างก่อน แล้วค่อย fetch
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAndStart());
+  }
+
+  Future<void> _checkAndStart() async {
+    final hasSession = await PracticeExamController.hasSavedSession(widget.testId);
+    if (!mounted) return;
+
+    if (hasSession) {
+      final resume = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('มีข้อสอบค้างอยู่'),
+          content: const Text('คุณต้องการทำต่อจากที่ค้างไว้ หรือเริ่มทำใหม่?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('เริ่มใหม่', style: TextStyle(color: Colors.red)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+              child: const Text('ทำต่อ', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (!mounted) return;
+      if (resume == false) {
+        await PracticeExamController.clearSession();
+      }
+      _startExam(resume: resume ?? false);
+    } else {
+      _startExam(resume: false);
+    }
+  }
+
+  void _startExam({required bool resume}) {
+    _ctrl.fetchAllData(resume: resume).catchError((e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error loading data: $e")),
+          SnackBar(content: Text("Error loading data: \$e")),
         );
       }
     });
@@ -56,9 +96,19 @@ class _PracticeExamScreenState extends State<PracticeExamScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ctrl.dispose();
     _passagePageController.dispose();
     super.dispose();
+  }
+
+  /// กลับมา foreground → แค่ notify controller ให้ timer display อัพเดท
+  /// ไม่ setState ที่ screen ตรงๆ เพราะจะทำให้ audio reload
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _ctrl.notifyTimerUpdate();
+    }
   }
 
   // ─────────────────────────────────────────────────────────────

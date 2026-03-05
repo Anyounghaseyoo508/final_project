@@ -45,7 +45,7 @@ dependencies:
   provider: ^6.1.5+1
   app_links: ^6.0.0
   flutter_markdown: ^0.7.3
-  
+  shared_preferences: ^2.3.0
   
   
 dev_dependencies:

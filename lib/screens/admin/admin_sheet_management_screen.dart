@@ -14,6 +14,7 @@ class _ContentItem {
   final String       source;     // 'sheet' | 'resource'
   final String       title;
   final String       description;
+  final String       detail;     // resource only (long description)
   final String       type;       // 'sheet' | 'youtube' | 'article' | 'website' | 'other'
   final String       category;   // sheet only
   final String       url;        // resource only
@@ -23,7 +24,7 @@ class _ContentItem {
   final DateTime     createdAt;
 
   const _ContentItem({required this.id, required this.source, required this.title,
-    required this.description, required this.type, required this.category,
+    required this.description, required this.detail, required this.type, required this.category,
     required this.url, required this.pdfUrl, required this.imageUrls,
     required this.isPinned, required this.createdAt});
 
@@ -32,7 +33,7 @@ class _ContentItem {
 
   factory _ContentItem.fromSheet(Map<String, dynamic> m) => _ContentItem(
     id: m['id'].toString(), source: 'sheet', title: m['title'] ?? '',
-    description: m['description'] ?? '', type: 'sheet', category: m['category'] ?? '',
+    description: m['description'] ?? '', detail: '', type: 'sheet', category: m['category'] ?? '',
     url: '', pdfUrl: m['pdf_url'] ?? '', imageUrls: _urls(m['image_urls']),
     isPinned: m['is_pinned'] == true,
     createdAt: DateTime.tryParse(m['created_at'] ?? '') ?? DateTime.now(),
@@ -40,7 +41,7 @@ class _ContentItem {
 
   factory _ContentItem.fromResource(Map<String, dynamic> m) => _ContentItem(
     id: m['id'].toString(), source: 'resource', title: m['title'] ?? '',
-    description: m['description'] ?? '', type: m['type'] ?? 'other', category: '',
+    description: m['description'] ?? '', detail: m['detail'] ?? '', type: m['type'] ?? 'other', category: '',
     url: m['url'] ?? '', pdfUrl: '', imageUrls: _urls(m['image_urls']),
     isPinned: m['is_pinned'] == true,
     createdAt: DateTime.tryParse(m['created_at'] ?? '') ?? DateTime.now(),
@@ -153,18 +154,25 @@ class _AdminSheetManagementScreenState extends State<AdminSheetManagementScreen>
                           Expanded(child: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontWeight: item.isPinned ? FontWeight.w700 : FontWeight.w500))),
                         ]),
-                        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          if (item.isPinned || item.imageUrls.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2, bottom: 2),
-                              child: Row(children: [
-                                if (item.isPinned) Container(
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            if (item.description.isNotEmpty)
+                              Text(item.description,
+                                maxLines: 2, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 11, color: Colors.black87, height: 1.4)),
+                            const SizedBox(height: 3),
+                            Row(children: [
+                              if (item.isPinned) ...[
+                                Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: Colors.orange.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
                                   child: const Text("Dashboard", style: TextStyle(fontSize: 9, color: Colors.orange, fontWeight: FontWeight.w700)),
                                 ),
-                                if (item.isPinned && item.imageUrls.isNotEmpty) const SizedBox(width: 4),
-                                if (item.imageUrls.isNotEmpty) Container(
+                                const SizedBox(width: 4),
+                              ],
+                              if (item.imageUrls.isNotEmpty) ...[
+                                Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: const Color(0xFFE0F7FA), borderRadius: BorderRadius.circular(8)),
                                   child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -173,16 +181,16 @@ class _AdminSheetManagementScreenState extends State<AdminSheetManagementScreen>
                                     Text('${item.imageUrls.length} รูป', style: const TextStyle(fontSize: 9, color: Color(0xFF0891B2), fontWeight: FontWeight.w700)),
                                   ]),
                                 ),
-                              ]),
-                            ),
-                          if (item.description.isNotEmpty)
-                            Text(item.description, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11)),
-                          Text(
-                            item.source == 'sheet' ? item.category : item.url,
-                            maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10, color: Colors.grey),
-                          ),
-                        ]),
+                                const SizedBox(width: 4),
+                              ],
+                              Expanded(child: Text(
+                                item.source == 'sheet' ? item.category : item.url,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              )),
+                            ]),
+                          ]),
+                        ),
                         isThreeLine: true,
                         trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                           IconButton(
@@ -194,7 +202,7 @@ class _AdminSheetManagementScreenState extends State<AdminSheetManagementScreen>
                                     onSave: (d) async => await _supabase.from('sheets').update(d).eq('id', item.id))
                                 : _showResourceDialog(context: context, title: "แก้ไขแหล่งเรียนรู้",
                                     initialData: {'id': item.id, 'title': item.title, 'type': item.type,
-                                      'url': item.url, 'description': item.description, 'image_urls': item.imageUrls},
+                                      'url': item.url, 'description': item.description, 'detail': item.detail, 'image_urls': item.imageUrls},
                                     onSave: (d) async => await _supabase.from('learning_resources').update(d).eq('id', item.id)),
                           ),
                           IconButton(
