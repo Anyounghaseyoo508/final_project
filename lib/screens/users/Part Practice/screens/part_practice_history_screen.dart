@@ -47,7 +47,7 @@ class _PartPracticeHistoryScreenState
         foregroundColor: Colors.indigo,
         elevation: 0,
         title: const Text(
-          'ประวัติการทำแบบฝึกหัดรายพาร์ท',
+          'ประวัติการทำแบบฝึกหัด',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [

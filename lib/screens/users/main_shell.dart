@@ -326,20 +326,20 @@ class _ModeCard extends StatelessWidget {
               children: [
                 // ── รูป asset หรือ fallback icon ───────────────────────
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
                     mode.imagePath,
-                    width: 52,
-                    height: 52,
+                    width: 130,
+                    height: 110,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      width: 52,
-                      height: 52,
+                      width: 160,
+                      height: 110,
                       decoration: BoxDecoration(
                         color: mode.accent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(mode.icon, color: mode.accent, size: 26),
+                      child: Icon(mode.icon, color: mode.accent, size: 40),
                     ),
                   ),
                 ),
@@ -351,12 +351,12 @@ class _ModeCard extends StatelessWidget {
                       Text(mode.title,
                           style: const TextStyle(
                               color: _textPri,
-                              fontSize: 15,
+                              fontSize: 17,
                               fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(mode.desc,
                           style:
-                              const TextStyle(color: _textSec, fontSize: 12)),
+                              const TextStyle(color: _textSec, fontSize: 13)),
                     ],
                   ),
                 ),

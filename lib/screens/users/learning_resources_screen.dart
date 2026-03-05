@@ -75,6 +75,25 @@ class ResourceMeta {
   }
 }
 
+// ─── Sheet Model ─────────────────────────────────────────────────────────────
+class Sheet {
+  final String id;
+  final String title;
+  final String category;
+  final String pdfUrl;
+  final DateTime createdAt;
+
+  const Sheet({required this.id, required this.title, required this.category, required this.pdfUrl, required this.createdAt});
+
+  factory Sheet.fromMap(Map<String, dynamic> m) => Sheet(
+    id:        m['id'].toString(),
+    title:     (m['title']    as String?) ?? '',
+    category:  (m['category'] as String?) ?? 'ทั่วไป',
+    pdfUrl:    (m['pdf_url']  as String?) ?? '',
+    createdAt: DateTime.tryParse(m['created_at'] ?? '') ?? DateTime.now(),
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,15 +105,15 @@ class LearningResourcesScreen extends StatefulWidget {
 
 class _LearningResourcesScreenState extends State<LearningResourcesScreen>
     with SingleTickerProviderStateMixin {
-  final _supabase = Supabase.instance.client;
-  static const _filters    = ['ทั้งหมด', 'YouTube', 'บทความ', 'เว็บไซต์', 'อื่นๆ'];
-  static const _filterKeys = ['all', 'youtube', 'article', 'website', 'other'];
-  late TabController _tabCtrl;
+  late TabController _mainTabCtrl;
 
   @override
-  void initState() { super.initState(); _tabCtrl = TabController(length: _filters.length, vsync: this); }
+  void initState() {
+    super.initState();
+    _mainTabCtrl = TabController(length: 2, vsync: this);
+  }
   @override
-  void dispose() { _tabCtrl.dispose(); super.dispose(); }
+  void dispose() { _mainTabCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
@@ -115,35 +134,100 @@ class _LearningResourcesScreenState extends State<LearningResourcesScreen>
               child: Container(
                 decoration: const BoxDecoration(color: Colors.white, border: Border(bottom: BorderSide(color: Color(0xFFEAECF2)))),
                 child: TabBar(
-                  controller: _tabCtrl, isScrollable: true, tabAlignment: TabAlignment.start,
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  indicatorColor: const Color(0xFF1A56DB), indicatorWeight: 2.5, indicatorSize: TabBarIndicatorSize.label,
+                  controller: _mainTabCtrl,
+                  indicatorColor: const Color(0xFF1A56DB), indicatorWeight: 2.5,
                   labelColor: const Color(0xFF1A56DB), unselectedLabelColor: const Color(0xFF64748B),
-                  labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
-                  unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                  tabs: _filters.map((f) => Tab(text: f, height: 44)).toList(),
+                  labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  unselectedLabelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                  tabs: const [
+                    Tab(icon: Icon(Icons.link_rounded, size: 18), text: 'แหล่งเรียนรู้', height: 44),
+                    Tab(icon: Icon(Icons.picture_as_pdf_rounded, size: 18), text: 'ชีทสรุป', height: 44),
+                  ],
                 ),
               ),
             ),
           ),
         ],
-        body: StreamBuilder<List<Map<String, dynamic>>>(
+        body: TabBarView(
+          controller: _mainTabCtrl,
+          children: const [
+            _ResourcesTab(),
+            _SheetsTab(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 1: แหล่งเรียนรู้
+// ─────────────────────────────────────────────────────────────────────────────
+class _ResourcesTab extends StatefulWidget {
+  const _ResourcesTab();
+  @override
+  State<_ResourcesTab> createState() => _ResourcesTabState();
+}
+
+class _ResourcesTabState extends State<_ResourcesTab> with AutomaticKeepAliveClientMixin {
+  final _supabase = Supabase.instance.client;
+  static const _filters    = ['ทั้งหมด', 'YouTube', 'บทความ', 'เว็บไซต์', 'อื่นๆ'];
+  static const _filterKeys = ['all', 'youtube', 'article', 'website', 'other'];
+  int _tabIndex = 0;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Column(children: [
+      // filter chips
+      Container(
+        color: Colors.white,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: List.generate(_filters.length, (i) {
+              final selected = _tabIndex == i;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _tabIndex = i),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: selected ? const Color(0xFF1A56DB) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: selected ? const Color(0xFF1A56DB) : const Color(0xFFE2E8F0)),
+                    ),
+                    child: Text(_filters[i], style: TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : const Color(0xFF64748B),
+                    )),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+      Expanded(
+        child: StreamBuilder<List<Map<String, dynamic>>>(
           stream: _supabase.from('learning_resources').stream(primaryKey: ['id']).order('created_at', ascending: false),
           builder: (context, snapshot) {
             if (snapshot.hasError) return _errorState();
             if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF1A56DB), strokeWidth: 2));
             final all = snapshot.data!.map(LearningResource.fromMap).toList();
-            return TabBarView(
-              controller: _tabCtrl,
-              children: _filterKeys.map((key) {
-                final items = key == 'all' ? all : all.where((r) => r.type == key).toList();
-                return items.isEmpty ? _emptyState() : _ResourceList(items: items);
-              }).toList(),
-            );
+            final key  = _filterKeys[_tabIndex];
+            final items = key == 'all' ? all : all.where((r) => r.type == key).toList();
+            return items.isEmpty ? _emptyState('ยังไม่มีแหล่งเรียนรู้') : _ResourceList(items: items);
           },
         ),
       ),
-    );
+    ]);
   }
 
   Widget _errorState() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -151,17 +235,179 @@ class _LearningResourcesScreenState extends State<LearningResourcesScreen>
     const SizedBox(height: 12),
     const Text('โหลดข้อมูลไม่สำเร็จ', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
   ]));
-
-  Widget _emptyState() => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-    Container(width: 72, height: 72,
-        decoration: BoxDecoration(color: const Color(0xFFF2F4F8), borderRadius: BorderRadius.circular(20)),
-        child: const Icon(Icons.search_off_rounded, size: 36, color: Color(0xFFADB5C7))),
-    const SizedBox(height: 14),
-    const Text('ยังไม่มีแหล่งเรียนรู้', style: TextStyle(color: Color(0xFF64748B), fontSize: 14, fontWeight: FontWeight.w600)),
-    const SizedBox(height: 4),
-    const Text('ผู้ดูแลระบบยังไม่ได้เพิ่มเนื้อหา', style: TextStyle(color: Color(0xFFADB5C7), fontSize: 12)),
-  ]));
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TAB 2: ชีทสรุป
+// ─────────────────────────────────────────────────────────────────────────────
+class _SheetsTab extends StatefulWidget {
+  const _SheetsTab();
+  @override
+  State<_SheetsTab> createState() => _SheetsTabState();
+}
+
+class _SheetsTabState extends State<_SheetsTab> with AutomaticKeepAliveClientMixin {
+  final _supabase = Supabase.instance.client;
+  String _selectedCategory = 'ทั้งหมด';
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _supabase.from('sheets').stream(primaryKey: ['id']).order('created_at', ascending: false),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFFADB5C7)),
+          const SizedBox(height: 12),
+          const Text('โหลดข้อมูลไม่สำเร็จ', style: TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600)),
+        ]));
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator(color: Color(0xFF1A56DB), strokeWidth: 2));
+
+        final allSheets = snapshot.data!.map(Sheet.fromMap).toList();
+        final categories = ['ทั้งหมด', ...{...allSheets.map((s) => s.category)}];
+        if (!categories.contains(_selectedCategory)) _selectedCategory = 'ทั้งหมด';
+        final filtered = _selectedCategory == 'ทั้งหมด'
+            ? allSheets
+            : allSheets.where((s) => s.category == _selectedCategory).toList();
+
+        return Column(children: [
+          // category filter
+          Container(
+            color: Colors.white,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: categories.map((cat) {
+                  final selected = cat == _selectedCategory;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedCategory = cat),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: selected ? const Color(0xFFE53935) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: selected ? const Color(0xFFE53935) : const Color(0xFFE2E8F0)),
+                        ),
+                        child: Text(cat, style: TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600,
+                          color: selected ? Colors.white : const Color(0xFF64748B),
+                        )),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+          Expanded(
+            child: filtered.isEmpty
+                ? _emptyState('ยังไม่มีชีทสรุป')
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _SheetCard(sheet: filtered[i]),
+                    ),
+                  ),
+          ),
+        ]);
+      },
+    );
+  }
+}
+
+// ─── Sheet Card ───────────────────────────────────────────────────────────────
+class _SheetCard extends StatelessWidget {
+  final Sheet sheet;
+  const _SheetCard({required this.sheet});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        final uri = Uri.tryParse(sheet.pdfUrl);
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFEAECF2)),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        child: Row(children: [
+          Container(
+            width: 80, height: 90,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFEBEE),
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(18), bottomLeft: Radius.circular(18)),
+            ),
+            child: Stack(children: [
+              Positioned(right: -12, top: -12, child: Container(width: 50, height: 50,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFFE53935).withOpacity(0.08)))),
+              Center(child: Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: const Color(0xFFE53935).withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 3))]),
+                child: const Icon(Icons.picture_as_pdf_rounded, color: Color(0xFFE53935), size: 24),
+              )),
+            ]),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(6)),
+                  child: Text(sheet.category, style: const TextStyle(color: Color(0xFFE53935), fontSize: 10, fontWeight: FontWeight.w700)),
+                ),
+                const SizedBox(height: 6),
+                Text(sheet.title,
+                  style: const TextStyle(color: Color(0xFF0F1729), fontSize: 14, fontWeight: FontWeight.w700, height: 1.3),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(color: const Color(0xFFFFEBEE), borderRadius: BorderRadius.circular(20)),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text('เปิดอ่าน', style: TextStyle(color: Color(0xFFE53935), fontSize: 11, fontWeight: FontWeight.w700)),
+                      SizedBox(width: 4),
+                      Icon(Icons.open_in_new_rounded, size: 11, color: Color(0xFFE53935)),
+                    ]),
+                  ),
+                ]),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+// ── helper shared
+Widget _emptyState(String label) => Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+  Container(width: 72, height: 72,
+      decoration: BoxDecoration(color: const Color(0xFFF2F4F8), borderRadius: BorderRadius.circular(20)),
+      child: const Icon(Icons.search_off_rounded, size: 36, color: Color(0xFFADB5C7))),
+  const SizedBox(height: 14),
+  Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 14, fontWeight: FontWeight.w600)),
+  const SizedBox(height: 4),
+  const Text('ผู้ดูแลระบบยังไม่ได้เพิ่มเนื้อหา', style: TextStyle(color: Color(0xFFADB5C7), fontSize: 12)),
+]));
 
 // ─── Resource List ────────────────────────────────────────────────────────────
 class _ResourceList extends StatelessWidget {
@@ -485,19 +731,6 @@ class _ResourceDetailScreenState extends State<ResourceDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF64748B),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      side: const BorderSide(color: Color(0xFFEAECF2)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                    icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                    label: const Text('กลับ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-                  ),
-                ),
               ]),
             ),
           ),

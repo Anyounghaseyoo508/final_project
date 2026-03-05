@@ -203,8 +203,12 @@ class _PartPracticeResultScreenState extends State<PartPracticeResultScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context)
-                        .popUntil((route) => route.isFirst),
+                    onPressed: () {
+                      // pop result screen + exam screen กลับมาที่ selector
+                      Navigator.of(context)
+                        ..pop() // ออกจาก result
+                        ..pop(); // ออกจาก exam screen
+                    },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),

@@ -107,7 +107,15 @@ class _PartPracticeSelectorScreenState
         backgroundColor: _surface,
         foregroundColor: _indigo,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: _selectedPart == null
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: () => Navigator.pop(context),
+              )
+            : IconButton(
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                onPressed: () => setState(() => _selectedPart = null),
+              ),
         title: AnimatedSwitcher(
           duration: const Duration(milliseconds: 200),
           child: _selectedPart == null
@@ -116,24 +124,15 @@ class _PartPracticeSelectorScreenState
                   key: ValueKey('main'),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
                 )
-              : Row(
+              : Align(
                   key: const ValueKey('detail'),
-                  children: [
-                    GestureDetector(
-                      onTap: () => setState(() => _selectedPart = null),
-                      child: const Icon(Icons.arrow_back_ios_new_rounded,
-                          size: 18),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Part $_selectedPart — ${_partInfo[_selectedPart]?['name'] ?? ''}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 17),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Part $_selectedPart — ${_partInfo[_selectedPart]?['name'] ?? ''}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 17),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
         ),
         actions: [
@@ -331,61 +330,59 @@ class _PartCard extends StatelessWidget {
             border: Border.all(color: color.withOpacity(0.18)),
           ),
           child: Stack(children: [
-            // decorative circle top-right
-            Positioned(
-              right: -18, top: -18,
-              child: Container(
-                width: 70, height: 70,
-                decoration: BoxDecoration(
-                  color: bgMid,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Icon
-                  Container(
-                    width: 44, height: 44,
-                    decoration: BoxDecoration(
-                      color: bgLight,
-                      borderRadius: BorderRadius.circular(13),
+                  // Icon — กึ่งกลาง ใหญ่ขึ้น
+                  Center(
+                    child: Container(
+                      width: 76, height: 76,
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Icon(
+                          info?['icon'] ?? Icons.assignment_outlined,
+                          color: color, size: 44),
                     ),
-                    child: Icon(
-                        info?['icon'] ?? Icons.assignment_outlined,
-                        color: color, size: 22),
                   ),
                   const Spacer(),
-                  Text('Part $part',
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: color,
-                          letterSpacing: 0.5)),
-                  const SizedBox(height: 2),
-                  Text(info?['name'] ?? 'Part $part',
-                      style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF111827)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: bgMid,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text('$titleCount ชุด',
+                  Center(
+                    child: Text('Part $part',
                         style: TextStyle(
                             fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: color)),
+                            fontWeight: FontWeight.w700,
+                            color: color,
+                            letterSpacing: 0.5)),
+                  ),
+                  const SizedBox(height: 2),
+                  Center(
+                    child: Text(info?['name'] ?? 'Part $part',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF111827)),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text('$titleCount ชุด',
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: color)),
+                    ),
                   ),
                 ],
               ),
