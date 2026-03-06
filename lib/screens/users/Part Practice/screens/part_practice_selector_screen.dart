@@ -277,19 +277,13 @@ class _PartPracticeSelectorScreenState
           color: color,
           bestScore: best,
           onTap: () {
-            Navigator.push(
+            Navigator.pushReplacement(
               context,
               MaterialPageRoute(
                 builder: (_) =>
                     PartPracticeExamScreen(part: part, title: title),
               ),
-            ).then((_) {
-              if (mounted) {
-                _ctrl.dispose();
-                _initCtrl();
-                setState(() {});
-              }
-            });
+            );
           },
         );
       },

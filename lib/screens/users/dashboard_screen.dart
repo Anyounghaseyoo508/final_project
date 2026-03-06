@@ -707,6 +707,15 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(children: [
+            // ── Logo ──
+            Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Image.asset(
+                'assets/images/vocabboost_logo_v3.png',
+                width: compact ? 32 : 38,
+                height: compact ? 32 : 38,
+              ),
+            ),
             Expanded(
               child: compact
                   ? Text('สวัสดี, $userName 👋',

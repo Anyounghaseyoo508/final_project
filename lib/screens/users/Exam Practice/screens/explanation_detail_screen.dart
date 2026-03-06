@@ -145,7 +145,7 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
       child: ElevatedButton.icon(
         onPressed: () => _showChatBot(context),
         icon: const Icon(Icons.bolt),
-        label: const Text("ถาม AI Tutor"),
+        label: const Text("ถาม AI เพิ่มเติม"),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.indigo,
           foregroundColor: Colors.white,

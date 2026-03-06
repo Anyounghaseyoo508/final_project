@@ -157,17 +157,14 @@ class _LoginScreenState extends State<LoginScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // ── Header ──
-                    const Text(
-                      'VocabBoost',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        color: _blue,
-                        letterSpacing: -0.5,
+                    Center(
+                      child: Image.asset(
+                        'assets/images/vocabboost_logo_v3.png',
+                        width: 120,
+                        height: 120,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 12),
                     const Text(
                       'เข้าสู่ระบบเพื่อเริ่มใช้งาน',
                       textAlign: TextAlign.center,

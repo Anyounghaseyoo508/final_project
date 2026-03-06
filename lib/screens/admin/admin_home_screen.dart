@@ -141,8 +141,19 @@ class _NarrowLayout extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
-        title: const Text('แผงควบคุม',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(
+              'assets/images/vocabboost_logo_v3.png',
+              width: 30,
+              height: 30,
+            ),
+            const SizedBox(width: 8),
+            const Text('VocabBoost Admin',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
         backgroundColor: const Color(0xFF1E3A5F),
         foregroundColor: Colors.white,
         elevation: 0,
@@ -176,26 +187,21 @@ class _AdminSidebar extends StatelessWidget {
           Container(
             padding: const EdgeInsets.fromLTRB(20, 40, 20, 24),
             child: Row(children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: Colors.blueAccent.shade400,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.school_rounded,
-                    color: Colors.white, size: 22),
+              Image.asset(
+                'assets/images/vocabboost_logo_v3.png',
+                width: 42,
+                height: 42,
               ),
               const SizedBox(width: 12),
               const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('VB Admin',
+                    Text('VocabBoost',
                         style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                             fontSize: 16)),
-                    Text('แผงควบคุม',
+                    Text('Admin Panel',
                         style: TextStyle(color: Colors.white54, fontSize: 11)),
                   ]),
             ]),

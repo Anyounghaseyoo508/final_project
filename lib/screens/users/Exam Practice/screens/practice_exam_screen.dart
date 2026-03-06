@@ -126,6 +126,11 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
     final partId = _ctrl.currentPartId;
 
     return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _handleExitRequest();
+      },
       child: _ctrl.isShowingDirection
           ? _buildDirectionScreen(partId)
           : Scaffold(
@@ -259,6 +264,82 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
 
   // ─────────────────────────────────────────────────────────────
   //  WIDGETS
+  // ─────────────────────────────────────────────────────────────
+
+  // ─── Exit Dialog ───────────────────────────────────────────────────────────
+
+  /// แสดง dialog ถามว่าจะ save แล้วออก หรือออกโดยไม่ save
+  Future<void> _handleExitRequest() async {
+    // ถ้ายังโหลดไม่เสร็จ ออกได้เลย
+    if (_ctrl.isLoading || _ctrl.questions.isEmpty) {
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
+    final result = await showDialog<_ExitChoice>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ออกจากการสอบ?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ตอบแล้ว ${_ctrl.userAnswers.length}/${_ctrl.questions.length} ข้อ',
+              style: TextStyle(
+                  color: Colors.grey.shade600, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            const Text('ต้องการทำอะไร?'),
+          ],
+        ),
+        actions: [
+          // ยกเลิก → กลับไปทำต่อ
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, _ExitChoice.cancel),
+            child: const Text('ทำต่อ'),
+          ),
+          // บันทึกแล้วออก → กลับมาทำต่อได้ในครั้งหน้า
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, _ExitChoice.saveAndExit),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.indigo,
+              side: const BorderSide(color: Colors.indigo),
+            ),
+            child: const Text('บันทึกแล้วออก'),
+          ),
+          // ออกโดยไม่บันทึก → ล้าง session
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, _ExitChoice.exitWithoutSave),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('ออกโดยไม่บันทึก'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    switch (result) {
+      case _ExitChoice.cancel:
+      case null:
+        break; // ไม่ทำอะไร
+      case _ExitChoice.saveAndExit:
+        await _ctrl.saveSession(); // บันทึก progress
+        if (mounted) Navigator.of(context).pop();
+        break;
+      case _ExitChoice.exitWithoutSave:
+        await PracticeExamController.clearSession(); // ล้าง session
+        if (mounted) Navigator.of(context).pop();
+        break;
+    }
+  }
+
+  /// ตัวเลือกใน exit dialog
   // ─────────────────────────────────────────────────────────────
 
   /// ตัวเลือกคำตอบ A/B/C/D
@@ -802,3 +883,6 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
     );
   }
 }
+
+// ── Exit choice enum ──────────────────────────────────────────────────────────
+enum _ExitChoice { cancel, saveAndExit, exitWithoutSave }

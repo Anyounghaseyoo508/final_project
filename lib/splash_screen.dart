@@ -35,7 +35,7 @@ class _SplashScreenState extends State<SplashScreen> {
     if (!mounted) return;
 
     if (session == null) {
-      Navigator.pushReplacementNamed(context, '/login');
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
       return;
     }
 
@@ -55,7 +55,7 @@ class _SplashScreenState extends State<SplashScreen> {
       // ── บัญชีถูกปิด → logout แล้วไป Login ─────────────────────────────────
       if (!isActive) {
         await supabase.auth.signOut();
-        if (mounted) Navigator.pushReplacementNamed(context, '/login');
+        if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
         return;
       }
 
@@ -77,22 +77,22 @@ class _SplashScreenState extends State<SplashScreen> {
                 const SnackBar(
                     content: Text('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่')),
               );
-              Navigator.pushReplacementNamed(context, '/login');
+              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
             }
             return;
           }
         }
 
         // Admin session ยังใช้ได้ → ไปหน้า Admin
-        Navigator.pushReplacementNamed(context, '/admin_home');
+        Navigator.pushNamedAndRemoveUntil(context, '/admin_home', (route) => false);
       } else {
         // ── User ปกติ: ไม่มี timeout → เข้าแอปเลย ───────────────────────────
         // Supabase จะ refresh token ให้อัตโนมัติ user ไม่ต้อง login ใหม่
-        Navigator.pushReplacementNamed(context, '/');
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
       }
     } catch (e) {
       // ถ้าดึงข้อมูลไม่ได้ (เช่น ไม่มี internet) → ไปหน้า Login
-      if (mounted) Navigator.pushReplacementNamed(context, '/login');
+      if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 
