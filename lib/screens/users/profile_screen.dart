@@ -1,7 +1,10 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../services/app_theme_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -35,20 +38,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .eq('id', user.id)
           .maybeSingle();
 
-      if (response != null) {
-        setState(() {
-          _displayName = response['display_name'] ?? user.email ?? '';
-          _avatarUrl = response['avatar_url'];
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _displayName = user.email ?? '';
-          _isLoading = false;
-        });
+      if (!mounted) return;
+      setState(() {
+        _displayName = response?['display_name'] ?? user.email ?? '';
+        _avatarUrl = response?['avatar_url'];
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isLoading = false);
       }
-    } catch (e) {
-      setState(() => _isLoading = false);
     }
   }
 
@@ -66,32 +65,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final fileName =
           '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      await _supabase.storage.from('avatars').upload(fileName, file);
+      await _supabase.storage
+          .from('avatars')
+          .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
 
-      final publicUrl =
-          _supabase.storage.from('avatars').getPublicUrl(fileName);
+      final publicUrl = _supabase.storage
+          .from('avatars')
+          .getPublicUrl(fileName);
 
-      await _supabase.from('users').update({
-        'avatar_url': publicUrl,
-      }).eq('id', user.id);
+      await _supabase
+          .from('users')
+          .update({'avatar_url': publicUrl})
+          .eq('id', user.id);
 
+      if (!mounted) return;
       setState(() {
         _avatarUrl = publicUrl;
         _isLoading = false;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('อัพเดตรูปโปรไฟล์สำเร็จ')),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('อัปเดตรูปโปรไฟล์สำเร็จ')));
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     }
   }
 
@@ -112,7 +113,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('ยกเลิก'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('บันทึก'),
           ),
         ],
@@ -121,38 +122,131 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (result == null || result.isEmpty) return;
 
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+
     try {
-      final user = _supabase.auth.currentUser;
-      if (user == null) return;
+      await _supabase
+          .from('users')
+          .update({'display_name': result})
+          .eq('id', user.id);
 
-      await _supabase.from('users').update({
-        'display_name': result,
-      }).eq('id', user.id);
-
+      if (!mounted) return;
       setState(() => _displayName = result);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('อัพเดตชื่อสำเร็จ')),
-        );
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('อัปเดตชื่อสำเร็จ')));
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เกิดข้อผิดพลาด: $e')));
     }
   }
 
-  Future<void> _deactivateAccount() async {
+  Future<void> _changeEmail() async {
+    final controller = TextEditingController(
+      text: _supabase.auth.currentUser?.email ?? '',
+    );
+
+    final newEmail = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('เปลี่ยนอีเมล'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(labelText: 'อีเมลใหม่'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: const Text('ยืนยัน'),
+          ),
+        ],
+      ),
+    );
+
+    if (newEmail == null || newEmail.isEmpty) return;
+
+    try {
+      await _supabase.auth.updateUser(UserAttributes(email: newEmail));
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        await _supabase
+            .from('users')
+            .update({'email': newEmail})
+            .eq('id', user.id);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ส่งลิงก์ยืนยันอีเมลใหม่แล้ว กรุณาเช็กอีเมล'),
+        ),
+      );
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปลี่ยนอีเมลไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final controller = TextEditingController();
+
+    final newPassword = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('เปลี่ยนรหัสผ่าน'),
+        content: TextField(
+          controller: controller,
+          obscureText: true,
+          decoration: const InputDecoration(
+            labelText: 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ยกเลิก'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('บันทึก'),
+          ),
+        ],
+      ),
+    );
+
+    if (newPassword == null || newPassword.length < 6) return;
+
+    try {
+      await _supabase.auth.updateUser(UserAttributes(password: newPassword));
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: $e')));
+    }
+  }
+
+  Future<void> _deleteAccount() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('ยืนยันการลบบัญชี'),
-        content: const Text(
-          'ระบบจะปิดการใช้งานบัญชีนี้ และคุณจะไม่สามารถเข้าสู่ระบบได้จนกว่าผู้ดูแลระบบจะเปิดใช้งานอีกครั้ง',
-        ),
+        title: const Text('ยืนยันลบบัญชีถาวร'),
+        content: const Text('บัญชีและข้อมูลของคุณจะถูกลบถาวร คุณแน่ใจหรือไม่?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -160,7 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('ยืนยันลบบัญชี'),
+            child: const Text('ลบถาวร'),
           ),
         ],
       ),
@@ -168,33 +262,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (confirm != true) return;
 
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
     try {
-      await _supabase.from('users').update({
-        'is_active': false,
-      }).eq('id', user.id);
-
+      await _supabase.rpc('delete_my_account');
       await _supabase.auth.signOut();
-      if (mounted) {
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-      }
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ลบบัญชีไม่สำเร็จ: $e')),
-        );
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        await _supabase
+            .from('users')
+            .update({'is_active': false})
+            .eq('id', user.id);
+        await _supabase.auth.signOut();
       }
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final userEmail = _supabase.auth.currentUser?.email ?? '-';
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('โปรไฟล์'),
-      ),
+      appBar: AppBar(title: const Text('โปรไฟล์')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -218,8 +310,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: CircleAvatar(
                           backgroundColor: Colors.blue,
                           child: IconButton(
-                            icon: const Icon(Icons.camera_alt,
-                                color: Colors.white),
+                            icon: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                            ),
                             onPressed: _pickImage,
                           ),
                         ),
@@ -239,7 +333,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ListTile(
                     leading: const Icon(Icons.email),
                     title: const Text('อีเมล'),
-                    subtitle: Text(_supabase.auth.currentUser?.email ?? ''),
+                    subtitle: Text(userEmail),
+                    trailing: TextButton(
+                      onPressed: _changeEmail,
+                      child: const Text('เปลี่ยน'),
+                    ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.lock),
+                    title: const Text('รหัสผ่าน'),
+                    subtitle: const Text('เปลี่ยนรหัสผ่านบัญชี'),
+                    trailing: TextButton(
+                      onPressed: _changePassword,
+                      child: const Text('เปลี่ยน'),
+                    ),
                   ),
                   const Divider(height: 32),
                   ListTile(
@@ -253,22 +360,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   ListTile(
                     leading: const Icon(Icons.logout, color: Colors.red),
-                    title: const Text('ออกจากระบบ',
-                        style: TextStyle(color: Colors.red)),
+                    title: const Text(
+                      'ออกจากระบบ',
+                      style: TextStyle(color: Colors.red),
+                    ),
                     onTap: () async {
                       await _supabase.auth.signOut();
-                      if (mounted) {
+                      if (mounted)
                         Navigator.pushReplacementNamed(context, '/login');
-                      }
                     },
                   ),
                   ListTile(
-                    leading:
-                        const Icon(Icons.delete_forever, color: Colors.red),
-                    title: const Text('ลบบัญชี',
-                        style: TextStyle(color: Colors.red)),
-                    subtitle: const Text('ปิดการใช้งานบัญชีนี้'),
-                    onTap: _deactivateAccount,
+                    leading: const Icon(
+                      Icons.delete_forever,
+                      color: Colors.red,
+                    ),
+                    title: const Text(
+                      'ลบบัญชีถาวร',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    subtitle: const Text('ลบข้อมูลบัญชีออกจากระบบ'),
+                    onTap: _deleteAccount,
                   ),
                 ],
               ),
@@ -308,16 +420,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .eq('user_id', user.id)
           .maybeSingle();
 
-      if (response != null) {
+      if (response != null && mounted) {
         setState(() {
           _notificationsEnabled = response['notifications_enabled'] ?? true;
           _soundEnabled = response['sound_enabled'] ?? true;
           _darkMode = response['dark_mode'] ?? false;
         });
       }
-    } catch (e) {
-      debugPrint('Error loading settings: $e');
-    }
+      AppThemeService.setDarkMode(_darkMode);
+    } catch (_) {}
   }
 
   Future<void> _saveSetting(String key, bool value) async {
@@ -329,9 +440,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'user_id': user.id,
         key: value,
       });
-    } catch (e) {
-      debugPrint('Error saving setting: $e');
-    }
+    } catch (_) {}
   }
 
   @override
@@ -360,25 +469,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           SwitchListTile(
             title: const Text('โหมดมืด'),
-            subtitle: const Text('เปลี่ยนธีมเป็นโหมดมืด'),
+            subtitle: const Text('ใช้ธีมมืดในทั้งแอป'),
             value: _darkMode,
             onChanged: (value) {
               setState(() => _darkMode = value);
+              AppThemeService.setDarkMode(value);
               _saveSetting('dark_mode', value);
             },
           ),
           const Divider(),
-          ListTile(
-            leading: const Icon(Icons.privacy_tip),
-            title: const Text('นโยบายความเป็นส่วนตัว'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.info),
-            title: const Text('เกี่ยวกับแอป'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
+          const ListTile(
+            leading: Icon(Icons.info),
+            title: Text('Phase 2 profile/settings พร้อมใช้งานแล้ว'),
           ),
         ],
       ),

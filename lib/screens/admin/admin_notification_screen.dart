@@ -27,15 +27,28 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
 
   Future<void> _loadUsers() async {
     try {
-      final response = await _supabase
+      final allUsers = await _supabase
           .from('users')
           .select('id, email, display_name')
           .eq('is_active', true)
           .order('email');
+      final settings = await _supabase
+          .from('user_settings')
+          .select('user_id, notifications_enabled');
+
+      final enabledByUser = <String, bool>{
+        for (final s in settings)
+          s['user_id'] as String: s['notifications_enabled'] != false,
+      };
+
+      final response = List<Map<String, dynamic>>.from(allUsers).where((u) {
+        final userId = u['id'] as String;
+        return enabledByUser[userId] ?? true;
+      }).toList();
 
       if (!mounted) return;
       setState(() {
-        _users = List<Map<String, dynamic>>.from(response);
+        _users = response;
       });
     } catch (_) {}
   }
@@ -60,9 +73,9 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
     }
 
     if (_target == 'single' && _selectedUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('เลือกผู้ใช้ปลายทาง')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('เลือกผู้ใช้ปลายทาง')));
       return;
     }
 
@@ -96,14 +109,14 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
       if (!mounted) return;
       _titleController.clear();
       _bodyController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ส่งแจ้งเตือนสำเร็จ')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('ส่งแจ้งเตือนสำเร็จ')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ส่งแจ้งเตือนไม่สำเร็จ: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('ส่งแจ้งเตือนไม่สำเร็จ: $e')));
     }
 
     if (mounted) {
@@ -127,8 +140,10 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('ปลายทาง',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'ปลายทาง',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 8),
             SegmentedButton<String>(
               segments: const [
@@ -150,8 +165,10 @@ class _AdminNotificationScreenState extends State<AdminNotificationScreen> {
                     .map(
                       (u) => DropdownMenuItem<String>(
                         value: u['id'] as String,
-                        child: Text(_userLabel(u),
-                            overflow: TextOverflow.ellipsis),
+                        child: Text(
+                          _userLabel(u),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     )
                     .toList(),

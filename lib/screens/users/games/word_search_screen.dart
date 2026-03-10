@@ -1,6 +1,8 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:math';
 
 class WordSearchScreen extends StatefulWidget {
   const WordSearchScreen({super.key});
@@ -11,60 +13,85 @@ class WordSearchScreen extends StatefulWidget {
 
 class _WordSearchScreenState extends State<WordSearchScreen> {
   final _supabase = Supabase.instance.client;
-  
+  final _random = Random();
+
   List<String> _targetWords = [];
   List<List<String>> _grid = [];
   Set<String> _foundWords = {};
   List<Point<int>> _selectedCells = [];
-  bool _isLoading = true;
+
   int _score = 0;
+  int _lives = 3;
+  int _round = 1;
+  int _timeLeft = 60;
+  bool _isLoading = true;
+  bool _isGameOver = false;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _loadGame();
+    _startRound();
   }
 
-  Future<void> _loadGame() async {
+  Future<void> _startRound() async {
+    _timer?.cancel();
+
     try {
       final response = await _supabase
           .from('vocabulary')
           .select('headword')
-          .limit(5);
+          .limit(120);
+      final words =
+          List<Map<String, dynamic>>.from(response)
+              .map((e) => (e['headword'] as String).toUpperCase())
+              .where((w) => w.length >= 3 && w.length <= 8)
+              .toList()
+            ..shuffle(_random);
 
-      final words = List<Map<String, dynamic>>.from(response)
-          .map((e) => (e['headword'] as String).toUpperCase())
-          .where((w) => w.length >= 3 && w.length <= 8)
-          .toList();
+      final targetCount = min(6, 3 + (_round ~/ 2));
+      final target = words.take(targetCount).toList();
+      final gridSize = min(12, 8 + (_round ~/ 2));
 
+      if (!mounted) return;
       setState(() {
-        _targetWords = words;
-        _grid = _generateGrid(words);
+        _targetWords = target;
+        _foundWords = {};
+        _selectedCells = [];
+        _grid = _generateGrid(target, size: gridSize);
         _isLoading = false;
+        _timeLeft = max(25, 60 - _round);
       });
-    } catch (e) {
-      setState(() => _isLoading = false);
+
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted || _isGameOver) return;
+        setState(() => _timeLeft -= 1);
+        if (_timeLeft <= 0) {
+          _loseLife();
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  List<List<String>> _generateGrid(List<String> words) {
-    const size = 10;
+  List<List<String>> _generateGrid(List<String> words, {required int size}) {
     final grid = List.generate(size, (_) => List.filled(size, ''));
-    final random = Random();
 
-    for (var word in words) {
+    for (final word in words) {
       bool placed = false;
       int attempts = 0;
 
-      while (!placed && attempts < 50) {
-        final row = random.nextInt(size);
-        final col = random.nextInt(size);
-        final horizontal = random.nextBool();
+      while (!placed && attempts < 100) {
+        final row = _random.nextInt(size);
+        final col = _random.nextInt(size);
+        final horizontal = _random.nextBool();
 
         if (horizontal && col + word.length <= size) {
-          bool canPlace = true;
+          var canPlace = true;
           for (int i = 0; i < word.length; i++) {
-            if (grid[row][col + i].isNotEmpty && grid[row][col + i] != word[i]) {
+            if (grid[row][col + i].isNotEmpty &&
+                grid[row][col + i] != word[i]) {
               canPlace = false;
               break;
             }
@@ -76,9 +103,10 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
             placed = true;
           }
         } else if (!horizontal && row + word.length <= size) {
-          bool canPlace = true;
+          var canPlace = true;
           for (int i = 0; i < word.length; i++) {
-            if (grid[row + i][col].isNotEmpty && grid[row + i][col] != word[i]) {
+            if (grid[row + i][col].isNotEmpty &&
+                grid[row + i][col] != word[i]) {
               canPlace = false;
               break;
             }
@@ -90,6 +118,7 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
             placed = true;
           }
         }
+
         attempts++;
       }
     }
@@ -97,7 +126,7 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
     for (int i = 0; i < size; i++) {
       for (int j = 0; j < size; j++) {
         if (grid[i][j].isEmpty) {
-          grid[i][j] = String.fromCharCode(65 + random.nextInt(26));
+          grid[i][j] = String.fromCharCode(65 + _random.nextInt(26));
         }
       }
     }
@@ -105,16 +134,25 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
     return grid;
   }
 
+  void _loseLife() {
+    _timer?.cancel();
+    setState(() => _lives -= 1);
+    if (_lives <= 0) {
+      _finishGame();
+    } else {
+      _startRound();
+    }
+  }
+
   void _onCellTap(int row, int col) {
     final point = Point(row, col);
-    
+
     setState(() {
       if (_selectedCells.contains(point)) {
         _selectedCells.remove(point);
       } else {
         _selectedCells.add(point);
       }
-
       _checkWord();
     });
   }
@@ -123,60 +161,88 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
     if (_selectedCells.length < 3) return;
 
     final word = _selectedCells.map((p) => _grid[p.x][p.y]).join();
-
     if (_targetWords.contains(word) && !_foundWords.contains(word)) {
       setState(() {
         _foundWords.add(word);
-        _score += word.length * 5;
+        _score += word.length * 5 + _round;
         _selectedCells.clear();
       });
 
       if (_foundWords.length == _targetWords.length) {
-        _saveScore();
+        _timer?.cancel();
+        setState(() {
+          _score += 20;
+          _round += 1;
+        });
+        _startRound();
       }
     }
   }
 
-  Future<void> _saveScore() async {
+  Future<void> _finishGame() async {
+    if (_isGameOver) return;
+    _isGameOver = true;
+    _timer?.cancel();
+
     final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      await _supabase.from('game_scores').insert({
-        'user_id': user.id,
-        'game_type': 'word_search',
-        'score': _score,
-      });
-
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('🎉 ยอดเยี่ยม!'),
-            content: Text('คะแนน: $_score'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('ปิด'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
+    if (user != null) {
+      try {
+        await _supabase.from('game_scores').insert({
+          'user_id': user.id,
+          'game_type': 'word_search',
+          'score': _score,
+        });
+      } catch (_) {}
     }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('จบเกมแล้ว'),
+        content: Text('คะแนน: $_score\nผ่านไป ${_round - 1} รอบ'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _score = 0;
+                _lives = 3;
+                _round = 1;
+                _isGameOver = false;
+              });
+              _startRound();
+            },
+            child: const Text('เล่นใหม่'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('ออก'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ค้นหาคำศัพท์'),
+        title: const Text('ค้นหาคำศัพท์ - Endless'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(child: Text('คะแนน: $_score')),
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, '/games/leaderboard'),
+            icon: const Icon(Icons.emoji_events),
           ),
         ],
       ),
@@ -184,8 +250,25 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Text('Round $_round'),
+                      Text('Score $_score'),
+                      Text('Lives $_lives'),
+                      Text('⏱ $_timeLeft'),
+                    ],
+                  ),
+                ),
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Wrap(
                     spacing: 8,
                     children: _targetWords.map((word) {
@@ -205,8 +288,8 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
                         padding: const EdgeInsets.all(16),
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: _grid.length,
-                          mainAxisSpacing: 4,
-                          crossAxisSpacing: 4,
+                          mainAxisSpacing: 3,
+                          crossAxisSpacing: 3,
                         ),
                         itemCount: _grid.length * _grid.length,
                         itemBuilder: (context, index) {
@@ -219,14 +302,15 @@ class _WordSearchScreenState extends State<WordSearchScreen> {
                             onTap: () => _onCellTap(row, col),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: isSelected ? Colors.blue.shade200 : Colors.grey.shade200,
+                                color: isSelected
+                                    ? Colors.blue.shade200
+                                    : Colors.grey.shade200,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Center(
                                 child: Text(
                                   _grid[row][col],
                                   style: const TextStyle(
-                                    fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),

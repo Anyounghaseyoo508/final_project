@@ -42,11 +42,16 @@ class _LoginScreenState extends State<LoginScreen> {
             await _supabase.auth.signOut();
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content:
-                      Text('บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ')),
+                content: Text('บัญชีนี้ถูกปิดการใช้งาน กรุณาติดต่อผู้ดูแลระบบ'),
+              ),
             );
             return;
           }
+
+          await _supabase
+              .from('users')
+              .update({'last_sign_in_at': DateTime.now().toIso8601String()}).eq(
+                  'id', res.user!.id);
 
           if (role == 'admin') {
             Navigator.pushReplacementNamed(context, '/admin_home');
@@ -70,31 +75,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("เข้าสู่ระบบไม่สำเร็จ: ${e.toString()}")),
-        );
-      }
-    }
-  }
-
-  Future<void> _forgotPassword() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรอกอีเมลก่อนกดลืมรหัสผ่าน')),
-      );
-      return;
-    }
-
-    try {
-      await _supabase.auth.resetPasswordForEmail(email);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว')),
-        );
-      }
-    } on AuthException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('ส่งลิงก์ไม่สำเร็จ: ${e.message}')),
         );
       }
     }
@@ -137,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
               child: const Text("ยังไม่มีบัญชี? สมัครสมาชิกใหม่"),
             ),
             TextButton(
-              onPressed: _forgotPassword,
+              onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
               child: const Text("ลืมรหัสผ่าน"),
             ),
           ],

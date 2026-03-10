@@ -11,6 +11,7 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _nameController = TextEditingController();
   final _supabase = Supabase.instance.client;
 
@@ -18,6 +19,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _nameController.dispose();
     super.dispose();
   }
@@ -27,6 +29,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("กรุณากรอกข้อมูลให้ครบถ้วน")),
       );
+      return;
+    }
+    if (_passwordController.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("รหัสผ่านต้องยาวอย่างน้อย 6 ตัว")),
+      );
+      return;
+    }
+    if (_passwordController.text != _confirmPasswordController.text) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("ยืนยันรหัสผ่านไม่ตรงกัน")));
       return;
     }
 
@@ -46,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           'email': _emailController.text.trim(),
           'display_name': _nameController.text.trim(),
           'role': 'user',
+          'is_active': true,
           // 'created_at' ปกติในฐานข้อมูล Supabase จะตั้งค่า DEFAULT now() ไว้แล้ว ไม่ต้องส่งไปก็ได้ครับ
         });
 
@@ -96,6 +111,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
             TextField(
               controller: _passwordController,
               decoration: const InputDecoration(labelText: "รหัสผ่าน"),
+              obscureText: true,
+            ),
+            TextField(
+              controller: _confirmPasswordController,
+              decoration: const InputDecoration(labelText: "ยืนยันรหัสผ่าน"),
               obscureText: true,
             ),
             const SizedBox(height: 30),

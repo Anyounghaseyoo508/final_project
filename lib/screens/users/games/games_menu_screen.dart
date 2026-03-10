@@ -23,6 +23,7 @@ class GamesMenuScreen extends StatelessWidget {
             _gameCard(
               context,
               title: 'จับคู่คำศัพท์',
+              subtitle: 'Endless • เวลา • ชีวิต',
               icon: Icons.grid_on,
               color: Colors.blue,
               onTap: () => Navigator.push(
@@ -33,17 +34,20 @@ class GamesMenuScreen extends StatelessWidget {
             _gameCard(
               context,
               title: 'เติมคำในประโยค',
+              subtitle: 'สุ่มโจทย์ต่อเนื่อง',
               icon: Icons.edit_note,
               color: Colors.green,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                    builder: (_) => const SentenceCompletionScreen()),
+                  builder: (_) => const SentenceCompletionScreen(),
+                ),
               ),
             ),
             _gameCard(
               context,
               title: 'ค้นหาคำศัพท์',
+              subtitle: 'Round-based Endless',
               icon: Icons.search,
               color: Colors.orange,
               onTap: () => Navigator.push(
@@ -54,6 +58,7 @@ class GamesMenuScreen extends StatelessWidget {
             _gameCard(
               context,
               title: 'Leaderboard',
+              subtitle: 'จัดอันดับทุกเกม',
               icon: Icons.emoji_events,
               color: Colors.deepPurple,
               onTap: () => Navigator.pushNamed(context, '/games/leaderboard'),
@@ -67,6 +72,7 @@ class GamesMenuScreen extends StatelessWidget {
   Widget _gameCard(
     BuildContext context, {
     required String title,
+    required String subtitle,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
@@ -99,6 +105,11 @@ class GamesMenuScreen extends StatelessWidget {
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
             ],
           ),

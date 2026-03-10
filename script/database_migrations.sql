@@ -85,6 +85,22 @@ ALTER TABLE user_issues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view own profile" ON users;
+CREATE POLICY "Users can view own profile"
+ON users FOR SELECT
+USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can insert own profile" ON users;
+CREATE POLICY "Users can insert own profile"
+ON users FOR INSERT
+WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Users can update own profile" ON users;
+CREATE POLICY "Users can update own profile"
+ON users FOR UPDATE
+USING (auth.uid() = id)
+WITH CHECK (auth.uid() = id);
+
 DROP POLICY IF EXISTS "Users can view their own game scores" ON game_scores;
 CREATE POLICY "Users can view their own game scores"
 ON game_scores FOR SELECT
@@ -125,6 +141,11 @@ CREATE POLICY "Users can update read status of own notifications"
 ON user_notifications FOR UPDATE
 USING (auth.uid() = user_id)
 WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can delete their own notifications" ON user_notifications;
+CREATE POLICY "Users can delete their own notifications"
+ON user_notifications FOR DELETE
+USING (auth.uid() = user_id);
 
 -- Admin policies
 DROP POLICY IF EXISTS "Admins can view all game scores" ON game_scores;
@@ -176,3 +197,25 @@ USING (
     WHERE users.id = auth.uid() AND users.role = 'admin'
   )
 );
+
+-- ลบบัญชีตัวเองแบบถาวร (Phase 2)
+CREATE OR REPLACE FUNCTION public.delete_my_account()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  uid uuid;
+BEGIN
+  uid := auth.uid();
+  IF uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  DELETE FROM auth.users WHERE id = uid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_my_account() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.delete_my_account() TO authenticated;

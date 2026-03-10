@@ -1,201 +1,296 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:math';
 
 class SentenceCompletionScreen extends StatefulWidget {
   const SentenceCompletionScreen({super.key});
 
   @override
-  State<SentenceCompletionScreen> createState() => _SentenceCompletionScreenState();
+  State<SentenceCompletionScreen> createState() =>
+      _SentenceCompletionScreenState();
 }
 
 class _SentenceCompletionScreenState extends State<SentenceCompletionScreen> {
   final _supabase = Supabase.instance.client;
-  
-  List<Map<String, dynamic>> _questions = [];
-  int _currentIndex = 0;
+  final _random = Random();
+
+  List<Map<String, dynamic>> _pool = [];
+  Map<String, dynamic>? _currentQuestion;
+
   int _score = 0;
+  int _lives = 3;
+  int _streak = 0;
+  int _round = 1;
+  int _timeLeft = 12;
+
   bool _isLoading = true;
-  String? _selectedAnswer;
   bool _showResult = false;
+  bool _isGameOver = false;
+  String? _selectedAnswer;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _loadQuestions();
+    _bootstrap();
   }
 
-  Future<void> _loadQuestions() async {
+  Future<void> _bootstrap() async {
+    await _loadPool();
+    _nextQuestion();
+  }
+
+  Future<void> _loadPool() async {
     try {
       final response = await _supabase
           .from('vocabulary')
-          .select('headword, Example_Sentence, Translation_TH')
+          .select('headword, Example_Sentence')
           .not('Example_Sentence', 'is', null)
-          .limit(10);
+          .limit(200);
 
-      final questions = List<Map<String, dynamic>>.from(response).map((item) {
-        final sentence = item['Example_Sentence'] as String;
-        final word = item['headword'] as String;
-        
-        final blanked = sentence.replaceFirst(
-          RegExp(word, caseSensitive: false),
-          '_____',
-        );
-
-        final wrongWords = ['answer', 'question', 'problem', 'solution'];
-        final options = [word, ...wrongWords.take(3)];
-        options.shuffle(Random());
-
-        return {
-          'sentence': blanked,
-          'correct': word,
-          'options': options,
-          'translation': item['Translation_TH'],
-        };
+      final raw = List<Map<String, dynamic>>.from(response).where((e) {
+        final sentence = '${e['Example_Sentence'] ?? ''}';
+        final word = '${e['headword'] ?? ''}';
+        return word.isNotEmpty &&
+            sentence.toLowerCase().contains(word.toLowerCase());
       }).toList();
 
-      setState(() {
-        _questions = questions;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
+      raw.shuffle(_random);
+      _pool = raw;
+      _isLoading = false;
+    } catch (_) {
+      _isLoading = false;
     }
   }
 
-  void _checkAnswer() {
-    if (_selectedAnswer == null) return;
+  List<String> _buildOptions(String correct) {
+    final candidates =
+        _pool
+            .map((e) => '${e['headword'] ?? ''}')
+            .where(
+              (w) => w.isNotEmpty && w.toLowerCase() != correct.toLowerCase(),
+            )
+            .toList()
+          ..shuffle(_random);
 
-    setState(() => _showResult = true);
+    final options = <String>[correct, ...candidates.take(3)]..shuffle(_random);
+    return options;
+  }
 
-    if (_selectedAnswer == _questions[_currentIndex]['correct']) {
-      _score += 10;
-    }
-
-    Future.delayed(const Duration(seconds: 2), () {
-      if (_currentIndex < _questions.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _selectedAnswer = null;
-          _showResult = false;
-        });
-      } else {
-        _saveScore();
+  void _startTimer() {
+    _timer?.cancel();
+    _timeLeft = max(6, 12 - ((_round - 1) ~/ 3));
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _isGameOver) return;
+      setState(() => _timeLeft -= 1);
+      if (_timeLeft <= 0) {
+        _loseLife();
       }
     });
   }
 
-  Future<void> _saveScore() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
+  void _nextQuestion() {
+    if (_pool.isEmpty) return;
 
-    try {
-      await _supabase.from('game_scores').insert({
-        'user_id': user.id,
-        'game_type': 'sentence_completion',
-        'score': _score,
-      });
+    final item = _pool[_random.nextInt(_pool.length)];
+    final sentence = item['Example_Sentence'] as String;
+    final word = item['headword'] as String;
+    final blanked = sentence.replaceFirst(
+      RegExp(word, caseSensitive: false),
+      '_____',
+    );
 
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('🎉 เสร็จสิ้น!'),
-            content: Text('คะแนนรวม: $_score/${_questions.length * 10}'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.pop(context);
-                },
-                child: const Text('ปิด'),
-              ),
-            ],
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error: $e');
+    setState(() {
+      _currentQuestion = {
+        'sentence': blanked,
+        'correct': word,
+        'options': _buildOptions(word),
+      };
+      _showResult = false;
+      _selectedAnswer = null;
+      _round += 1;
+    });
+
+    _startTimer();
+  }
+
+  void _loseLife() {
+    _timer?.cancel();
+    setState(() {
+      _lives -= 1;
+      _streak = 0;
+    });
+    if (_lives <= 0) {
+      _finishGame();
+    } else {
+      _nextQuestion();
     }
+  }
+
+  void _checkAnswer() {
+    if (_selectedAnswer == null || _currentQuestion == null) return;
+
+    _timer?.cancel();
+    final correct = _selectedAnswer == _currentQuestion!['correct'];
+
+    setState(() => _showResult = true);
+
+    if (correct) {
+      setState(() {
+        _streak += 1;
+        _score += 10 + min(10, _streak);
+      });
+      Future.delayed(const Duration(milliseconds: 600), _nextQuestion);
+    } else {
+      Future.delayed(const Duration(milliseconds: 600), _loseLife);
+    }
+  }
+
+  Future<void> _finishGame() async {
+    if (_isGameOver) return;
+    _isGameOver = true;
+    _timer?.cancel();
+
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      try {
+        await _supabase.from('game_scores').insert({
+          'user_id': user.id,
+          'game_type': 'sentence_completion',
+          'score': _score,
+        });
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('จบเกมแล้ว'),
+        content: Text('คะแนนรวม: $_score\nคำถามที่ผ่าน: ${_round - 1}'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() {
+                _score = 0;
+                _lives = 3;
+                _round = 1;
+                _streak = 0;
+                _isGameOver = false;
+              });
+              _nextQuestion();
+            },
+            child: const Text('เล่นใหม่'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context);
+            },
+            child: const Text('ออก'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    if (_questions.isEmpty) {
+    if (_currentQuestion == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('เติมคำในประโยค')),
-        body: const Center(child: Text('ไม่มีข้อมูล')),
+        appBar: AppBar(title: const Text('เติมคำในประโยค - Endless')),
+        body: const Center(child: Text('ไม่มีข้อมูลเพียงพอสำหรับเล่นเกม')),
       );
     }
 
-    final question = _questions[_currentIndex];
+    final question = _currentQuestion!;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('ข้อ ${_currentIndex + 1}/${_questions.length}'),
+        title: const Text('เติมคำในประโยค - Endless'),
         actions: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Center(child: Text('คะแนน: $_score')),
+          IconButton(
+            onPressed: () => Navigator.pushNamed(context, '/games/leaderboard'),
+            icon: const Icon(Icons.emoji_events),
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Score: $_score'),
+                Text('Lives: $_lives'),
+                Text('⏱ $_timeLeft'),
+              ],
+            ),
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
                 child: Text(
                   question['sentence'],
-                  style: const TextStyle(fontSize: 18, height: 1.5),
+                  style: const TextStyle(fontSize: 20, height: 1.4),
                   textAlign: TextAlign.center,
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-            ...List.generate(
-              (question['options'] as List).length,
-              (index) {
-                final option = question['options'][index];
-                final isSelected = _selectedAnswer == option;
-                final isCorrect = option == question['correct'];
+            const SizedBox(height: 20),
+            ...List.generate((question['options'] as List).length, (index) {
+              final option = question['options'][index] as String;
+              final isSelected = _selectedAnswer == option;
+              final isCorrect = option == question['correct'];
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: ElevatedButton(
-                    onPressed: _showResult ? null : () {
-                      setState(() => _selectedAnswer = option);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.all(16),
-                      backgroundColor: _showResult
-                          ? (isCorrect ? Colors.green : (isSelected ? Colors.red : null))
-                          : (isSelected ? Colors.blue : null),
-                    ),
-                    child: Text(option, style: const TextStyle(fontSize: 16)),
+              Color? bg;
+              if (_showResult) {
+                if (isCorrect) {
+                  bg = Colors.green;
+                } else if (isSelected) {
+                  bg = Colors.red;
+                }
+              } else if (isSelected) {
+                bg = Colors.blue;
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: ElevatedButton(
+                  onPressed: _showResult
+                      ? null
+                      : () => setState(() => _selectedAnswer = option),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.all(14),
+                    backgroundColor: bg,
                   ),
-                );
-              },
-            ),
-            const Spacer(),
-            if (!_showResult)
-              ElevatedButton(
-                onPressed: _selectedAnswer == null ? null : _checkAnswer,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.all(16),
-                  backgroundColor: Colors.indigo,
+                  child: Text(option),
                 ),
-                child: const Text('ตรวจคำตอบ', style: TextStyle(fontSize: 18)),
-              ),
+              );
+            }),
+            const Spacer(),
+            ElevatedButton(
+              onPressed: _selectedAnswer == null || _showResult
+                  ? null
+                  : _checkAnswer,
+              child: const Text('ยืนยันคำตอบ'),
+            ),
           ],
         ),
       ),
