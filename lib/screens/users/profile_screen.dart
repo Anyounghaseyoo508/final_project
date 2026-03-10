@@ -286,7 +286,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final userEmail = _supabase.auth.currentUser?.email ?? '-';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('โปรไฟล์')),
+      appBar: AppBar(
+        title: const Text('โปรไฟล์'),
+        automaticallyImplyLeading: false,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(

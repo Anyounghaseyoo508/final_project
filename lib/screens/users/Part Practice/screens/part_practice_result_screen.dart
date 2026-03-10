@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import '../controller/part_practice_controller.dart';
-
+import '../../Exam Practice/controller/explanation_detail_controller.dart';
+import 'part_practice_selector_screen.dart';
 class PartPracticeResultScreen extends StatefulWidget {
   final PartPracticeResult result;
+  final bool isHistoryView;
 
-  const PartPracticeResultScreen({super.key, required this.result});
+  const PartPracticeResultScreen({
+    super.key,
+    required this.result,
+    this.isHistoryView = false,
+  });
 
   @override
   State<PartPracticeResultScreen> createState() =>
@@ -15,7 +21,20 @@ class _PartPracticeResultScreenState extends State<PartPracticeResultScreen> {
   // null = summary, int = index ของข้อที่ดูเฉลย
   int? _reviewIndex;
 
+  // chatbot per-question: key = question index
+  final Map<int, ExplanationDetailController> _chatCtrls = {};
+  final TextEditingController _chatInputCtrl = TextEditingController();
+
   PartPracticeResult get r => widget.result;
+
+  @override
+  void dispose() {
+    for (final c in _chatCtrls.values) {
+      c.dispose();
+    }
+    _chatInputCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,19 +44,29 @@ class _PartPracticeResultScreenState extends State<PartPracticeResultScreen> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.indigo,
         elevation: 0,
-        automaticallyImplyLeading: _reviewIndex != null,
-        title: Text(
-          _reviewIndex == null
-              ? 'ผลการทำข้อสอบ'
-              : 'เฉลยข้อ ${r.questions[_reviewIndex!]['question_no']}',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
+        automaticallyImplyLeading: false,
         leading: _reviewIndex != null
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
                 onPressed: () => setState(() => _reviewIndex = null),
               )
             : null,
+        title: _reviewIndex == null
+            ? Text(
+                widget.isHistoryView ? 'ดูเฉลยย้อนหลัง' : 'ผลการทำข้อสอบ',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              )
+            : Row(children: [
+                Expanded(
+                  child: Text(
+                    'เฉลยข้อ ${r.questions[_reviewIndex!]['question_no']}  ·  ${r.questions[_reviewIndex!]['category'] ?? ''}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+              ]),
       ),
       body: _reviewIndex == null ? _buildSummary() : _buildReview(_reviewIndex!),
     );
@@ -193,12 +222,27 @@ class _PartPracticeResultScreenState extends State<PartPracticeResultScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(context)
-                        .popUntil((route) => route.isFirst),
+                    onPressed: () {
+                      if (widget.isHistoryView) {
+                        // เปิดจากประวัติ → pop กลับหน้าประวัติ
+                        Navigator.of(context).pop();
+                      } else {
+                        // เปิดจากหน้าสอบ → กลับไป Selector
+                        Navigator.of(context).pushReplacement(
+                          MaterialPageRoute(
+                            builder: (_) => const PartPracticeSelectorScreen(),
+                          ),
+                        );
+                      }
+                    },
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: const Text('กลับหน้าเลือก Part'),
+                    child: Text(
+                      widget.isHistoryView
+                          ? 'กลับหน้าประวัติ'
+                          : 'กลับหน้าเลือก Part',
+                    ),
                   ),
                 ),
               ],
@@ -626,12 +670,226 @@ class _PartPracticeResultScreenState extends State<PartPracticeResultScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 16),
+                _buildAiButton(index, q, r.userAnswers[index] ?? ''),
                 const SizedBox(height: 40),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  // ─── AI Chatbot ───────────────────────────────────────────────────────────
+
+  ExplanationDetailController _getOrCreateCtrl(
+      int index, Map<String, dynamic> q, String userAns) {
+    if (!_chatCtrls.containsKey(index)) {
+      final ctrl = ExplanationDetailController();
+      ctrl.initGemini(question: q, userAns: userAns);
+      _chatCtrls[index] = ctrl;
+    }
+    return _chatCtrls[index]!;
+  }
+
+  Widget _buildAiButton(int index, Map<String, dynamic> q, String userAns) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: ElevatedButton.icon(
+        onPressed: () => _showChatBot(context, index, q, userAns),
+        icon: const Icon(Icons.bolt),
+        label: const Text('ถาม AI เพิ่มเติม'),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChatBot(BuildContext context, int index,
+      Map<String, dynamic> q, String userAns) {
+    final ctrl = _getOrCreateCtrl(index, q, userAns);
+    _chatInputCtrl.clear();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) {
+          ctrl.addListener(() {
+            if (ctx.mounted) setModal(() {});
+          });
+
+          return Container(
+            height: MediaQuery.of(ctx).size.height * 0.75,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 5),
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 10),
+                  child: Text(
+                    'AI TOEIC Tutor',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: ctrl.messages.isEmpty
+                      ? _buildWelcomeView(ctrl)
+                      : _buildChatList(ctrl, ctx),
+                ),
+                if (ctrl.isTyping) const LinearProgressIndicator(minHeight: 2),
+                _buildChatInput(ctrl, ctx),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildWelcomeView(ExplanationDetailController ctrl) {
+    const suggestions = [
+      'อธิบายข้อนี้ให้หน่อย',
+      'ขอสรุป Grammar ข้อนี้',
+      'แปลโจทย์และตัวเลือก',
+      'ทำไมตัวเลือกอื่นถึงผิด',
+    ];
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Icon(Icons.auto_awesome,
+                  size: 50, color: Colors.indigo.withOpacity(0.5)),
+              const SizedBox(height: 15),
+              const Text(
+                'สวัสดีครับ! อยากให้ช่วยอธิบายส่วนไหนเพิ่มเติมไหม?',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 25),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: suggestions
+                    .map((text) => ActionChip(
+                          label: Text(text,
+                              style: const TextStyle(
+                                  fontSize: 13, color: Colors.indigo)),
+                          backgroundColor: Colors.indigo.withOpacity(0.05),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20)),
+                          side: BorderSide(
+                              color: Colors.indigo.withOpacity(0.2)),
+                          onPressed: () => ctrl.sendMessage(text),
+                        ))
+                    .toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatList(ExplanationDetailController ctrl, BuildContext ctx) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(15),
+      itemCount: ctrl.messages.length,
+      itemBuilder: (_, i) {
+        final isUser = ctrl.messages[i]['role'] == 'user';
+        return Align(
+          alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.all(12),
+            constraints:
+                BoxConstraints(maxWidth: MediaQuery.of(ctx).size.width * 0.75),
+            decoration: BoxDecoration(
+              color: isUser ? Colors.indigo : Colors.grey[100],
+              borderRadius: BorderRadius.circular(15).copyWith(
+                bottomRight:
+                    isUser ? Radius.zero : const Radius.circular(15),
+                bottomLeft:
+                    isUser ? const Radius.circular(15) : Radius.zero,
+              ),
+            ),
+            child: Text(
+              ctrl.messages[i]['text']!,
+              style:
+                  TextStyle(color: isUser ? Colors.white : Colors.black87),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChatInput(ExplanationDetailController ctrl, BuildContext ctx) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(ctx).viewInsets.bottom + 15,
+        left: 15,
+        right: 15,
+        top: 10,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _chatInputCtrl,
+              decoration: InputDecoration(
+                hintText: 'พิมพ์ถามเพิ่มเติม...',
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(25),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 10),
+              ),
+              onSubmitted: (v) {
+                ctrl.sendMessage(v);
+                _chatInputCtrl.clear();
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          CircleAvatar(
+            backgroundColor: Colors.indigo,
+            child: IconButton(
+              icon: const Icon(Icons.send, color: Colors.white, size: 20),
+              onPressed: () {
+                ctrl.sendMessage(_chatInputCtrl.text);
+                _chatInputCtrl.clear();
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/tts_service.dart';
+import '../../../models/vocab_model.dart';
 
 class VocabDetailScreen extends StatefulWidget {
   static const routeName = '/vocab-detail';
@@ -136,17 +137,18 @@ class _VocabDetailScreenState extends State<VocabDetailScreen> {
     }
 
     final m = _currentData!;
-    final headword   = _s(m['headword']);
-    final cefr       = _s(m['CEFR']);
-    final pos        = _s(m['pos']);
-    final readingEn  = _s(m['Reading_EN']);
-    final readingTh  = _s(m['Reading_TH']);
-    final transTh    = _s(m['Translation_TH']);
-    final defTh      = _s(m['Definition_TH']);
-    final defEn      = _s(m['Definition_EN']);
-    final example    = _s(m['Example_Sentence']);
-    final category   = _s(m['TOEIC_Category']);
-    final synonymsRaw = _s(m['Synonyms']);
+    final v          = Vocabulary.fromMap(m);
+    final headword   = v.headword;
+    final cefr       = v.cefr;
+    final pos        = v.pos;
+    final readingEn  = v.readingEn;
+    final readingTh  = v.readingTh;
+    final transTh    = v.translationTH;
+    final defTh      = v.definitionTH;
+    final defEn      = v.definitionEN;
+    final example    = v.exampleSentence;
+    final category   = v.toeicCategory;
+    final synonymsRaw = v.synonyms;
     final synList    = _formatSynonyms(synonymsRaw);
 
     return Scaffold(

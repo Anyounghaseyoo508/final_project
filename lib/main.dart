@@ -2,29 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'screens/login_screen.dart';
-import 'screens/users/main_shell.dart';
-import 'screens/users/ai_tutor_screen.dart';
-import 'screens/users/Vocabulary Learning/vocab_detail_screen.dart';
-import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart';
-import 'screens/users/Exam Practice/screens/study_history_screen.dart';
-import 'screens/admin/Exam Management/screens/admin_exam_management_screen.dart';
+import './splash_screen.dart';
 import 'screens/admin/Exam Management/screens/admin_add_question_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/forgot_password_screen.dart';
+import 'screens/admin/Exam Management/screens/admin_exam_management_screen.dart';
+import 'screens/admin/Vocabbulary Management/screens/admin_vocab_screen.dart';
 import 'screens/admin/admin_home_screen.dart';
 import 'screens/admin/admin_import_screen.dart';
+import 'screens/admin/admin_monitoring_screen.dart';
+import 'screens/admin/admin_notification_screen.dart';
 import 'screens/admin/admin_sheet_management_screen.dart';
-import 'screens/admin/Vocabbulary Management/screens/admin_vocab_screen.dart';
+import 'screens/admin/admin_user_management_screen.dart';
+import 'screens/forgot_password_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'screens/users/Exam Practice/screens/practice_exam_screen.dart';
-import 'screens/users/games/games_menu_screen.dart';
+import 'screens/users/Exam Practice/screens/study_history_screen.dart';
+import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart';
+import 'screens/users/Vocabulary Learning/vocab_detail_screen.dart';
 import 'screens/users/games/game_leaderboard_screen.dart';
+import 'screens/users/games/games_menu_screen.dart';
+import 'screens/users/main_shell.dart';
+import 'screens/users/notification_center_screen.dart';
 import 'screens/users/profile_screen.dart';
 import 'screens/users/statistics_screen.dart';
-import 'screens/users/notification_center_screen.dart';
-import 'screens/admin/admin_monitoring_screen.dart';
-import 'screens/admin/admin_user_management_screen.dart';
-import 'screens/admin/admin_notification_screen.dart';
 import 'services/app_theme_service.dart';
 
 void main() async {
@@ -85,22 +85,19 @@ class _MyAppState extends State<MyApp> {
           title: 'TOEIC VocabBoost',
           theme: ThemeData(
             useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1A56DB),
-            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A56DB)),
             scaffoldBackgroundColor: const Color(0xFFF8F9FC),
             brightness: Brightness.light,
           ),
           darkTheme: ThemeData(
             useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1A56DB),
-            ),
+            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A56DB)),
             brightness: Brightness.dark,
           ),
           themeMode: mode,
-          initialRoute: '/login',
+          initialRoute: '/splash',
           routes: {
+            '/splash': (context) => const SplashScreen(),
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
             '/forgot-password': (context) => const ForgotPasswordScreen(),
@@ -113,8 +110,7 @@ class _MyAppState extends State<MyApp> {
             '/admin/vocab': (context) => const AdminVocabScreen(),
             '/admin/monitoring': (context) => const AdminMonitoringScreen(),
             '/admin/users': (context) => const AdminUserManagementScreen(),
-            '/admin/notifications': (context) =>
-                const AdminNotificationScreen(),
+            '/admin/notifications': (context) => const AdminNotificationScreen(),
             '/vocab-detail': (context) => const VocabDetailScreen(),
             '/bookmarks': (context) => const BookmarkListScreen(),
             '/': (context) => const MainShell(),
@@ -123,7 +119,6 @@ class _MyAppState extends State<MyApp> {
             '/profile': (context) => const ProfileScreen(),
             '/statistics': (context) => const StatisticsScreen(),
             '/notifications': (context) => const NotificationCenterScreen(),
-            '/ai-tutor': (context) => const AiTutorScreen(),
             '/study-history': (context) => const StudyHistoryScreen(),
             '/practice_exam': (context) {
               final args = ModalRoute.of(context)?.settings.arguments;

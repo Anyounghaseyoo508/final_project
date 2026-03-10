@@ -4,6 +4,8 @@ import './dashboard_screen.dart';
 import './Exam Practice/screens/exam_list_screen.dart';
 import './Part Practice/screens/part_practice_selector_screen.dart';
 import './Vocabulary Learning/vocab_list_screen.dart';
+import '../users/games/games_menu_screen.dart';
+import './profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -19,10 +21,11 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      const _ExamHubScreen(),
-      const VocabListScreen(),
-      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)),
-   
+      const _ExamHubScreen(), // 0
+      const VocabListScreen(), // 1
+      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)), // 2
+      const GamesMenuScreen(), // 3 ← เพิ่ม
+      const ProfileScreen(), // 4 ← เพิ่ม (ถ้ามี)
     ];
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -68,7 +71,7 @@ class _HomeFAB extends StatelessWidget {
         height: 58,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white, 
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
               color: accent.withOpacity(isActive ? 0.35 : 0.15),
@@ -79,12 +82,14 @@ class _HomeFAB extends StatelessWidget {
           // ── เอาขอบสีน้ำเงินออกแล้วครับ ───────────────────────
           border: isActive
               ? null // ตอนที่ถูกเลือกจะไม่มีขอบ
-              : Border.all(color: const Color(0xFFE2E8F0), width: 1.5), // ขอบเทาตอนไม่ได้เลือก
+              : Border.all(
+                  color: const Color(0xFFE2E8F0),
+                  width: 1.5), // ขอบเทาตอนไม่ได้เลือก
         ),
         child: Center(
           child: AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: isActive ? 1.0 : 0.45, 
+            opacity: isActive ? 1.0 : 0.45,
             child: Image.asset(
               'assets/icons/icons8-home-100.png', // อย่าลืมแก้ให้ตรงกับชื่อไฟล์ของคุณนะครับ
               width: 28,
@@ -156,7 +161,9 @@ class _NavBar extends StatelessWidget {
               // ── แก้ไขส่วนนี้เพื่อโชว์สีรูปต้นฉบับ ───────────────────────
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),
-                opacity: sel ? 1.0 : 0.45, // ถ้าเลือกจะสีสด 100% ถ้าไม่ได้เลือกจะจางลง
+                opacity: sel
+                    ? 1.0
+                    : 0.45, // ถ้าเลือกจะสีสด 100% ถ้าไม่ได้เลือกจะจางลง
                 child: Image.asset(
                   tab.imagePath,
                   width: 24,
@@ -319,20 +326,20 @@ class _ModeCard extends StatelessWidget {
               children: [
                 // ── รูป asset หรือ fallback icon ───────────────────────
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
                     mode.imagePath,
-                    width: 52,
-                    height: 52,
+                    width: 130,
+                    height: 110,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      width: 52,
-                      height: 52,
+                      width: 160,
+                      height: 110,
                       decoration: BoxDecoration(
                         color: mode.accent.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(mode.icon, color: mode.accent, size: 26),
+                      child: Icon(mode.icon, color: mode.accent, size: 40),
                     ),
                   ),
                 ),
@@ -344,12 +351,12 @@ class _ModeCard extends StatelessWidget {
                       Text(mode.title,
                           style: const TextStyle(
                               color: _textPri,
-                              fontSize: 15,
+                              fontSize: 17,
                               fontWeight: FontWeight.w700)),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(mode.desc,
                           style:
-                              const TextStyle(color: _textSec, fontSize: 12)),
+                              const TextStyle(color: _textSec, fontSize: 13)),
                     ],
                   ),
                 ),

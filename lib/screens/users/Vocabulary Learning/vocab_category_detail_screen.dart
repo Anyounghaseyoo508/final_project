@@ -26,7 +26,7 @@ class _VocabCategoryDetailScreenState
   static const _blue    = Color(0xFF1A56DB);
   static const _blueL   = Color(0xFFEEF3FF);
   static const _border  = Color(0xFFE2E8F0);
-  static const _textPri = Color(0xFF0F1729);
+  //static const _textPri = Color(0xFF0F1729);
   static const _textSec = Color(0xFF64748B);
 
   String searchQuery = '';

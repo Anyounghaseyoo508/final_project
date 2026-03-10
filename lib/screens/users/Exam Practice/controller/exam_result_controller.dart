@@ -53,6 +53,50 @@ class ExamResultController extends ChangeNotifier {
     }
   }
 
+  // ─── CEFR Level (ตามตาราง TOEIC official) ──────────────────────
+
+  /// Overall CEFR — ต้องผ่านทั้ง total, listening, reading พร้อมกัน
+  String getCefrLevel(int total, int listening, int reading) {
+    if (total >= 945 && listening >= 490 && reading >= 455) return 'C1';
+    if (total >= 785 && listening >= 400 && reading >= 385) return 'B2';
+    if (total >= 550 && listening >= 275 && reading >= 275) return 'B1';
+    if (total >= 225 && listening >= 110 && reading >= 115) return 'A2';
+    if (total >= 120 && listening >= 60  && reading >= 60)  return 'A1';
+    return 'Below A1';
+  }
+
+  /// CEFR เฉพาะ Listening
+  String getCefrListening(int score) {
+    if (score >= 490) return 'C1';
+    if (score >= 400) return 'B2';
+    if (score >= 275) return 'B1';
+    if (score >= 110) return 'A2';
+    if (score >= 60)  return 'A1';
+    return 'Below A1';
+  }
+
+  /// CEFR เฉพาะ Reading
+  String getCefrReading(int score) {
+    if (score >= 455) return 'C1';
+    if (score >= 385) return 'B2';
+    if (score >= 275) return 'B1';
+    if (score >= 115) return 'A2';
+    if (score >= 60)  return 'A1';
+    return 'Below A1';
+  }
+
+  /// สีประจำ CEFR level
+  static Color cefrColor(String cefr) {
+    switch (cefr) {
+      case 'C1':       return const Color(0xFF3730A3); // indigo-700
+      case 'B2':       return const Color(0xFF15803D); // green-700
+      case 'B1':       return const Color(0xFF1D4ED8); // blue-700
+      case 'A2':       return const Color(0xFFC2410C); // orange-700
+      case 'A1':       return const Color(0xFFB91C1C); // red-700
+      default:         return const Color(0xFF6B7280); // gray-500
+    }
+  }
+
   // ─── Proficiency Level ────────────────────────────────────────
   Map<String, dynamic> getProficiencyData(int totalScore) {
     if (totalScore >= 905)

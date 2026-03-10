@@ -43,7 +43,7 @@ class _MatchingGameScreenState extends State<MatchingGameScreen> {
     try {
       final pairCount = min(8, 3 + _round);
       final response = await _supabase
-          .from('vocabulary')
+          .from('vocabularies')
           .select('headword, Translation_TH')
           .not('Translation_TH', 'is', null)
           .limit(80);

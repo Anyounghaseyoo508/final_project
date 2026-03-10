@@ -77,7 +77,10 @@ class _AdminAddQuestionScreenState extends State<AdminAddQuestionScreen> {
                 _card('🎧 ไฟล์เสียง', _buildMediaSection('audio')),
                 const SizedBox(height: 12),
               ],
-              if (_ctrl.selectedPart == 1) ...[
+              if (_ctrl.selectedPart == 1 ||
+                  _ctrl.selectedPart == 3 ||
+                  _ctrl.selectedPart == 4 ||
+                  _ctrl.selectedPart == 6) ...[
                 _card('📷 รูปภาพ', _buildMediaSection('image')),
                 const SizedBox(height: 12),
               ],
@@ -258,7 +261,7 @@ class _AdminAddQuestionScreenState extends State<AdminAddQuestionScreen> {
           ]),
         ),
 
-        if (!isAudio) ...[
+        if (!isAudio && (_ctrl.selectedPart == 6 || _ctrl.selectedPart == 7)) ...[
           const SizedBox(height: 8),
           SizedBox(width: double.infinity,
             child: OutlinedButton.icon(

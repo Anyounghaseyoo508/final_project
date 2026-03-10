@@ -37,26 +37,38 @@ class AdminVocabController extends ChangeNotifier {
     notifyListeners();
 
     const pageSize = 1000;
-    int from = 0;
-    final all = <Map<String, dynamic>>[];
 
     try {
-      while (true) {
-        final page = await _supabase
+      // Step 1: นับ rows จริงก่อน
+      final countRes = await _supabase
+          .from(_tableName)
+          .select('id')
+          .count(CountOption.exact);
+      final total = countRes.count;
+
+      // Step 2: คำนวณจำนวน page แล้วยิงทุก page พร้อมกัน (parallel)
+      final pageCount = (total / pageSize).ceil();
+      final futures = List.generate(pageCount, (i) {
+        final from = i * pageSize;
+        return _supabase
             .from(_tableName)
             .select()
             .order('id', ascending: false)
             .range(from, from + pageSize - 1);
-        final list = List<Map<String, dynamic>>.from(page);
-        all.addAll(list);
-        if (list.length < pageSize) break;
-        from += pageSize;
-      }
-      allData = all;
+      });
+
+      // Step 3: รอทุก request พร้อมกัน
+      final results = await Future.wait(futures);
+      allData = results
+          .expand((page) => List<Map<String, dynamic>>.from(page))
+          .toList();
+
       isLoading = false;
     } catch (e) {
+      debugPrint('refreshData error: $e');
       isLoading = false;
     }
+
     notifyListeners();
   }
 

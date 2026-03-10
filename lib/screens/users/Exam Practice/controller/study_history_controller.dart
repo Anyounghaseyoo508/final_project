@@ -6,64 +6,59 @@ class StudyHistoryController extends ChangeNotifier {
 
   // ─── Methods ─────────────────────────────────────────────────
 
-  Future<List<Map<String, dynamic>>> getHistory() async {
+  /// [filterDate] ถ้าไม่ส่งมา = ดึง 20 อันล่าสุด
+  /// ถ้าส่งมา = ดึงเฉพาะวันนั้นทั้งหมด (00:00:00 - 23:59:59 UTC)
+  Future<List<Map<String, dynamic>>> getHistory({DateTime? filterDate}) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return [];
 
     try {
-      final response = await _supabase
+      var query = _supabase
           .from('exam_submissions')
           .select()
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
+          .eq('user_id', user.id);
 
-      return List<Map<String, dynamic>>.from(response);
+      if (filterDate != null) {
+        // filter ตามวัน → ดึงทั้งหมดของวันนั้น
+        final startLocal = DateTime(filterDate.year, filterDate.month, filterDate.day);
+        final endLocal   = startLocal.add(const Duration(days: 1));
+        final startUtc   = startLocal.toUtc().toIso8601String();
+        final endUtc     = endLocal.toUtc().toIso8601String();
+
+        final response = await query
+            .gte('created_at', startUtc)
+            .lt('created_at', endUtc)
+            .order('created_at', ascending: false);
+
+        return List<Map<String, dynamic>>.from(response);
+      } else {
+        // ไม่ได้ filter → ดึงแค่ 20 ล่าสุด
+        final response = await query
+            .order('created_at', ascending: false)
+            .limit(20);
+
+        return List<Map<String, dynamic>>.from(response);
+      }
     } catch (e) {
       debugPrint("Error fetching history: $e");
       return [];
     }
   }
 
-  /// ดึงข้อสอบ + รูป passage แบบ manual join แล้วคืนค่ากลับให้ UI navigate
-  Future<List<Map<String, dynamic>>> fetchQuestionsWithPassages(
-      int testId) async {
-    // ขั้นตอนที่ 1: ดึงข้อสอบทั้งหมดของ test_id นี้
-    final questionsResponse = await _supabase
-        .from('practice_test')
-        .select('*')
-        .eq('test_id', testId)
-        .order('question_no');
-
-    List<Map<String, dynamic>> questions =
-        List<Map<String, dynamic>>.from(questionsResponse);
-
-    // ขั้นตอนที่ 2: รวบรวม passage_group_id ที่ต้องใช้ไปดึงรูป
-    final groupIds = questions
-        .map((q) => q['passage_group_id'])
-        .where((id) => id != null)
-        .toSet()
-        .toList();
-
-    if (groupIds.isNotEmpty) {
-      // ดึงรูปภาพทั้งหมดจากตาราง passages ที่ตรงกับ groupIds
-      final passagesResponse = await _supabase
-          .from('passages')
-          .select('*')
-          .inFilter('passage_group_id', groupIds);
-
-      final List<Map<String, dynamic>> allPassages =
-          List<Map<String, dynamic>>.from(passagesResponse);
-
-      // นำรูปภาพกลับมาใส่ในแต่ละข้อสอบ (Manual Join)
-      for (var q in questions) {
-        if (q['passage_group_id'] != null) {
-          q['passages'] = allPassages
-              .where((p) => p['passage_group_id'] == q['passage_group_id'])
-              .toList();
-        }
+  /// ใช้ questions_snapshot ที่บันทึกตอนสอบ — ถูกต้องกว่าดึงใหม่จาก DB
+  /// เพราะ index ของ userAnswers ตรงกับ snapshot ที่บันทึกไว้เสมอ
+  List<Map<String, dynamic>> getQuestionsFromSnapshot(
+      Map<String, dynamic> item) {
+    try {
+      final snapshot = item['questions_snapshot'];
+      if (snapshot != null && snapshot is List && snapshot.isNotEmpty) {
+        return List<Map<String, dynamic>>.from(
+          snapshot.map((q) => Map<String, dynamic>.from(q)),
+        );
       }
+    } catch (e) {
+      debugPrint('Error parsing snapshot: $e');
     }
-
-    return questions;
+    return [];
   }
 }

@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'exam_result_screen.dart';
+import '../users/Exam Practice/screens/exam_result_screen.dart';
 
 class PracticeExamScreen extends StatefulWidget {
   final int testId;

@@ -145,7 +145,7 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
       child: ElevatedButton.icon(
         onPressed: () => _showChatBot(context),
         icon: const Icon(Icons.bolt),
-        label: const Text("ถาม AI Tutor (สั้นกระชับ)"),
+        label: const Text("ถาม AI เพิ่มเติม"),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.indigo,
           foregroundColor: Colors.white,
@@ -161,16 +161,39 @@ class _ExplanationDetailScreenState extends State<ExplanationDetailScreen> {
           height: 250,
           child: PageView.builder(
             controller: _pageController,
+            physics: const PageScrollPhysics(), // บังคับให้ PageView จัดการ gesture แนวนอนเอง
             itemCount: urls.length,
             onPageChanged: (i) => setState(() => _currentPage = i),
-            itemBuilder: (context, i) =>
-                InteractiveViewer(child: Image.network(urls[i])),
+            itemBuilder: (context, i) => InteractiveViewer(
+              panEnabled: false, // ปิด pan เพื่อไม่ให้ขัด PageView
+              child: Image.network(
+                urls[i],
+                fit: BoxFit.contain,
+              ),
+            ),
           ),
         ),
-        Text(
-          "${_currentPage + 1}/${urls.length}",
-          style: const TextStyle(fontSize: 10, color: Colors.grey),
-        ),
+        if (urls.length > 1)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ...List.generate(
+                urls.length,
+                (i) => AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 8),
+                  width: _currentPage == i ? 16 : 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: _currentPage == i ? Colors.indigo : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+            ],
+          )
+        else
+          const SizedBox(height: 8),
       ],
     );
   }

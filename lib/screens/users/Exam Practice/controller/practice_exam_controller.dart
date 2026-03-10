@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 
 /// รวม Logic ทั้งหมดของหน้า PracticeExam ไว้ที่นี่
 /// UI ไม่ต้องรู้จัก Supabase หรือ AudioPlayer โดยตรง
@@ -16,7 +18,7 @@ class PracticeExamController extends ChangeNotifier {
 
   PracticeExamController({required this.testId, this.onSubmitComplete}) {
     _initAudioListeners();
-    fetchAllData();
+    // fetchAllData ถูกเรียกจาก screen หลังตัดสินใจ resume/fresh แล้ว
   }
 
   // ─── State ───────────────────────────────────────────────────
@@ -44,33 +46,116 @@ class PracticeExamController extends ChangeNotifier {
 
   // ─── Exam Timer (2 hours) ────────────────────────────────────
   static const Duration examDuration = Duration(hours: 2);
-  Duration examTimeRemaining = examDuration;
   Timer? _examTimer;
+  DateTime? _examStartTime;
 
-  /// เริ่มนับถอยหลัง — เรียกครั้งเดียวตอน fetchAllData เสร็จ
-  void _startExamTimer() {
+  /// เวลาที่เหลือ คำนวณจาก wall-clock จริง → นับ background ด้วย
+  Duration get examTimeRemaining {
+    if (_examStartTime == null) return examDuration;
+    final elapsed = DateTime.now().difference(_examStartTime!);
+    final remaining = examDuration - elapsed;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  // SharedPreferences keys
+  static const String _keyStartTime = 'exam_start_time';
+  static const String _keyTestId    = 'exam_test_id';
+  static const String _keyIndex     = 'exam_current_index';
+  static const String _keyAnswers   = 'exam_answers';
+
+  /// เช็คว่ามี session ค้างอยู่ของ testId นี้ไหม
+  static Future<bool> hasSavedSession(int testId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedId = prefs.getInt(_keyTestId);
+    final savedTime = prefs.getString(_keyStartTime);
+    if (savedId != testId || savedTime == null) return false;
+    // เช็คว่า session ยังไม่หมดเวลา
+    final start = DateTime.parse(savedTime);
+    final elapsed = DateTime.now().difference(start);
+    return elapsed < examDuration;
+  }
+
+  /// บันทึก session ปัจจุบันลง SharedPreferences
+  Future<void> saveSession() async {
+    if (_examStartTime == null || questions.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyStartTime, _examStartTime!.toIso8601String());
+    await prefs.setInt(_keyTestId, testId);
+    await prefs.setInt(_keyIndex, currentIndex);
+    await prefs.setString(
+      _keyAnswers,
+      jsonEncode(userAnswers.map((k, v) => MapEntry(k.toString(), v))),
+    );
+  }
+
+  /// โหลด session ที่ค้างไว้ (เรียกหลัง fetchAllData เสร็จ)
+  Future<void> _resumeSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTime = prefs.getString(_keyStartTime);
+    final savedIndex = prefs.getInt(_keyIndex) ?? 0;
+    final savedAnswersRaw = prefs.getString(_keyAnswers);
+
+    if (savedTime != null) {
+      _examStartTime = DateTime.parse(savedTime);
+    }
+    if (savedIndex < questions.length) {
+      currentIndex = savedIndex;
+    }
+    if (savedAnswersRaw != null) {
+      final Map decoded = jsonDecode(savedAnswersRaw);
+      userAnswers.clear();
+      decoded.forEach((k, v) => userAnswers[int.parse(k)] = v.toString());
+    }
+    updateCurrentGroup();
+  }
+
+  /// ล้าง session ทิ้ง (เรียกตอน submit หรือ user เลือก "เริ่มใหม่")
+  static Future<void> clearSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_keyStartTime);
+    await prefs.remove(_keyTestId);
+    await prefs.remove(_keyIndex);
+    await prefs.remove(_keyAnswers);
+  }
+
+  /// เริ่ม timer ใหม่ตั้งแต่ต้น
+  void _startFreshTimer() {
+    _examStartTime = DateTime.now();
+    _resumeTimer();
+  }
+
+  /// เริ่ม tick loop (ใช้ทั้ง fresh และ resume)
+  void _resumeTimer() {
     _examTimer?.cancel();
-    examTimeRemaining = examDuration;
     _examTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (examTimeRemaining.inSeconds <= 0) {
         _examTimer?.cancel();
-        submitExam(); // หมดเวลา → ส่งอัตโนมัติ
+        submitExam();
       } else {
-        examTimeRemaining -= const Duration(seconds: 1);
         _notify();
+        saveSession(); // auto-save ทุก 1 วินาที
       }
     });
   }
 
   /// แสดงเป็น HH:MM:SS
   String get examTimerDisplay {
-    final h = examTimeRemaining.inHours.toString().padLeft(2, '0');
-    final m = (examTimeRemaining.inMinutes % 60).toString().padLeft(2, '0');
-    final s = (examTimeRemaining.inSeconds % 60).toString().padLeft(2, '0');
-    return "$h:$m:$s";
+    final t = examTimeRemaining;
+    final h = t.inHours.toString().padLeft(2, '0');
+    final m = (t.inMinutes % 60).toString().padLeft(2, '0');
+    final s = (t.inSeconds % 60).toString().padLeft(2, '0');
+    return '$h:$m:$s';
   }
 
   bool get isTimerWarning => examTimeRemaining.inMinutes < 10;
+
+  /// เรียกจาก screen ตอน app กลับมา foreground — อัพเดท timer display เฉยๆ
+  void notifyTimerUpdate() => _notify();
+
+  /// เวลาที่ใช้สอบจริง (วินาที) — ใช้ส่งไปหน้า Result
+  int get elapsedSeconds => _examStartTime != null
+      ? DateTime.now().difference(_examStartTime!).inSeconds
+      : 0;
 
   // ─── Getters (ใช้ใน UI บ่อย) ─────────────────────────────────
   Map<String, dynamic>? get currentQuestion =>
@@ -219,7 +304,7 @@ class PracticeExamController extends ChangeNotifier {
   Future<void> resumeAudio() => _audioPlayer.resume();
 
   // ─── Data Fetching ────────────────────────────────────────────
-  Future<void> fetchAllData() async {
+  Future<void> fetchAllData({bool resume = false}) async {
     try {
       final responses = await Future.wait([
         _supabase.from('part_directions').select(),
@@ -234,18 +319,56 @@ class PracticeExamController extends ChangeNotifier {
       partDirections = {
         for (var v in responses[0]) int.parse(v['part_id'].toString()): v,
       };
-      questions = List<Map<String, dynamic>>.from(responses[1]);
+      final rawQuestions = List<Map<String, dynamic>>.from(responses[1]);
       allPassageImages = List<Map<String, dynamic>>.from(responses[2]);
+
+      // Attach passages เข้าไปใน question แต่ละข้อ เพื่อให้ ExplanationDetailController ดึงรูปได้ครบ
+      questions = rawQuestions.map((q) {
+        final groupId = q['passage_group_id'];
+        if (groupId != null && groupId.toString().isNotEmpty) {
+          final passages = allPassageImages
+              .where((p) => p['passage_group_id'] == groupId.toString())
+              .toList();
+          return {...q, 'passages': passages};
+        }
+        return q;
+      }).toList();
       isLoading = false;
       currentIndex = 0;
       updateCurrentGroup();
       _notify();
 
       if (questions.isNotEmpty) {
-        _startExamTimer(); // ← เริ่มจับเวลาตั้งแต่หน้า Direction
-        isNavigating = true;
-        _notify();
-        loadAudio(isDirection: true);
+        if (resume) {
+          await _resumeSession();   // โหลด index, answers, startTime จาก prefs
+          _resumeTimer();           // เดิน timer ต่อจาก startTime เดิม
+          isShowingDirection = false;
+          _notify();
+
+          if (currentPartId <= 4) {
+            // Listening: ถอยกลับไปข้อแรกของ group ที่ค้างไว้ แล้วเล่น audio ใหม่
+            final groupId = questions[currentIndex]['passage_group_id'];
+            if (groupId != null && groupId.toString().isNotEmpty) {
+              // หา index แรกของ group นี้
+              currentIndex = questions.indexWhere(
+                (q) => q['passage_group_id'] == groupId,
+              );
+            }
+            updateCurrentGroup();
+            isNavigating = true;
+            _notify();
+            loadAudio(isDirection: false);
+          } else {
+            // Reading: กลับมาข้อที่ค้างไว้ได้เลย ไม่ต้องเล่น audio
+            isNavigating = false;
+            _notify();
+          }
+        } else {
+          _startFreshTimer();       // เริ่ม timer ใหม่
+          isNavigating = true;
+          _notify();
+          loadAudio(isDirection: true);
+        }
       }
     } catch (e) {
       debugPrint("Fetch Error: $e");
@@ -397,22 +520,13 @@ class PracticeExamController extends ChangeNotifier {
   Future<void> submitExam() async {
     int lRaw = 0;
     int rRaw = 0;
-    Map<String, Map<String, int>> skillSummary = {};
 
     for (int i = 0; i < questions.length; i++) {
       final q = questions[i];
       final userAnswer = userAnswers[i];
       final bool isCorrect = userAnswer != null && userAnswer == q['correct_answer'];
-      final String category = q['category'] ?? 'General';
-
       if (isCorrect) {
         if ((q['part'] ?? 1) <= 4) lRaw++; else rRaw++;
-      }
-
-      skillSummary.putIfAbsent(category, () => {'correct': 0, 'total': 0});
-      skillSummary[category]!['total'] = skillSummary[category]!['total']! + 1;
-      if (isCorrect) {
-        skillSummary[category]!['correct'] = skillSummary[category]!['correct']! + 1;
       }
     }
 
@@ -424,10 +538,15 @@ class PracticeExamController extends ChangeNotifier {
           .eq('raw_score', rRaw).maybeSingle(),
     ]);
 
-    final lToeic   = (convResults[0]?['listening_score'] as int?) ?? lRaw;
-    final rToeic   = (convResults[1]?['reading_score']   as int?) ?? rRaw;
-    final total    = lToeic + rToeic;
-    final level    = _proficiencyLevel(total);
+    final lToeic = (convResults[0]?['listening_score'] as int?) ?? lRaw;
+    final rToeic = (convResults[1]?['reading_score']   as int?) ?? rRaw;
+    final total  = lToeic + rToeic;
+    final level  = _proficiencyLevel(total);
+
+    // ── คำนวณเวลาที่ใช้สอบ ───────────────────────────────────────
+    final int durationSeconds = _examStartTime != null
+        ? DateTime.now().difference(_examStartTime!).inSeconds
+        : examDuration.inSeconds; // fallback กรณี start time หาย
 
     await _supabase.from('exam_submissions').insert({
       'user_id':            _supabase.auth.currentUser?.id,
@@ -438,25 +557,15 @@ class PracticeExamController extends ChangeNotifier {
       'total_questions':    questions.length,
       'answers':            userAnswers.map((k, v) => MapEntry(k.toString(), v)),
       'questions_snapshot': questions,
-      // ── scaled scores + level ─────────────────────────────────
-      'l_toeic':     lToeic,
-      'r_toeic':     rToeic,
-      'total_score': total,
-      'cefr_level':  level,
+      'l_toeic':            lToeic,
+      'r_toeic':            rToeic,
+      'total_score':        total,
+      'cefr_level':         level,
+      'duration_seconds':   durationSeconds, // ← บันทึกเวลา
     });
 
-    final skillUpdates = skillSummary.entries.map((e) =>
-      _supabase.rpc('update_user_skill_v2', params: {
-        'u_id': _supabase.auth.currentUser?.id,
-        'cat': e.key,
-        'correct_count': e.value['correct'],
-        'total_count': e.value['total'],
-      }).catchError((e) => debugPrint("Skill Update Error: $e")),
-    );
-
-    await Future.wait(skillUpdates).timeout(const Duration(seconds: 5));
-
-    // แจ้ง UI ว่า submit เสร็จแล้ว ให้ navigate ไปหน้าผล
+    // ล้าง session และแจ้ง UI
+    await clearSession();
     onSubmitComplete?.call();
   }
 

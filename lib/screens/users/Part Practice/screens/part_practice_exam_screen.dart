@@ -290,10 +290,14 @@ class _PartPracticeExamScreenState extends State<PartPracticeExamScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Image
-                    if (_hasImage(q)) _buildImage(q),
+                    // Image (single image_url) — ซ่อนถ้า Part 7 มี passages แล้ว
+                    if (_hasImage(q) && !_hasPassageImages(q, partId))
+                      _buildImage(q),
 
-                    // Transcript / Passage (Part 3,4,6,7)
+                    // Passage images group (Part 7)
+                    if (_hasPassageImages(q, partId)) _buildPassageImages(q),
+
+                    // Transcript / Passage text (Part 3,4,6 — ไม่รวม Part 7)
                     if (_hasPassage(q, partId)) _buildPassage(q, partId),
 
                     // Question text
@@ -457,7 +461,14 @@ class _PartPracticeExamScreenState extends State<PartPracticeExamScreen> {
 
   bool _hasPassage(Map<String, dynamic> q, int partId) {
     final t = q['transcript']?.toString() ?? '';
-    return t.isNotEmpty && (partId == 6 || partId == 7);
+    // แสดง transcript เฉพาะ Part 6 เท่านั้น (Listening ไม่แสดง, Part 7 ใช้รูป)
+    return t.isNotEmpty && partId == 6;
+  }
+
+  bool _hasPassageImages(Map<String, dynamic> q, int partId) {
+    if (partId != 7) return false;
+    final passages = q['passages'] as List?;
+    return passages != null && passages.isNotEmpty;
   }
 
   Widget _buildImage(Map<String, dynamic> q) {
@@ -520,6 +531,88 @@ class _PartPracticeExamScreenState extends State<PartPracticeExamScreen> {
           Text(q['transcript'] ?? '',
               style: const TextStyle(fontSize: 14, height: 1.6)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPassageImages(Map<String, dynamic> q) {
+    final passages = (q['passages'] as List?)
+            ?.cast<Map<String, dynamic>>()
+            .where((p) => (p['image_url']?.toString() ?? '').isNotEmpty)
+            .toList() ??
+        [];
+
+    if (passages.isEmpty) return const SizedBox.shrink();
+
+    // single image — ไม่ต้องมี PageView
+    if (passages.length == 1) {
+      return _passageImageTile(passages[0]['image_url'].toString(), 1, 1);
+    }
+
+    // multiple images — PageView เลื่อนได้
+    final pageCtrl = PageController();
+    return StatefulBuilder(
+      builder: (context, setLocal) {
+        int page = 0;
+        return Column(children: [
+          SizedBox(
+            height: 300,
+            child: PageView.builder(
+              controller: pageCtrl,
+              itemCount: passages.length,
+              onPageChanged: (i) => setLocal(() => page = i),
+              itemBuilder: (_, i) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _passageImageTile(
+                    passages[i]['image_url'].toString(), i + 1, passages.length),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // dot indicators
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(passages.length, (i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: page == i ? 18 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: page == i ? Colors.indigo : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            )),
+          ),
+          const SizedBox(height: 12),
+        ]);
+      },
+    );
+  }
+
+  Widget _passageImageTile(String url, int index, int total) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: InteractiveViewer(
+          minScale: 1.0,
+          maxScale: 4.0,
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Padding(
+              padding: EdgeInsets.all(20),
+              child: Icon(Icons.broken_image, size: 50, color: Colors.grey),
+            ),
+            loadingBuilder: (_, child, progress) => progress == null
+                ? child
+                : const Center(child: CircularProgressIndicator()),
+          ),
+        ),
       ),
     );
   }

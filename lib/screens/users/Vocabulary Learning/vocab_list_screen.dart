@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+﻿import 'package:flutter/material.dart';
+//import 'package:supabase_flutter/supabase_flutter.dart';
 import 'vocab_category_detail_screen.dart';
 import 'global_search_screen.dart';
 
 class VocabListScreen extends StatefulWidget {
-  const VocabListScreen({super.key});
+  final bool showBackButton;
+  const VocabListScreen({super.key, this.showBackButton = false});
 
   @override
   State<VocabListScreen> createState() => _VocabListScreenState();
@@ -76,6 +77,16 @@ class _VocabListScreenState extends State<VocabListScreen> {
             title: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                if (widget.showBackButton) ...[
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                        size: 20, color: _blue),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 4),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

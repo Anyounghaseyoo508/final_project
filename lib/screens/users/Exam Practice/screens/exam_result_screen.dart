@@ -6,12 +6,14 @@ class ExamResultScreen extends StatefulWidget {
   final List<Map<String, dynamic>> questions;
   final Map<dynamic, dynamic> userAnswers;
   final bool isHistoryView;
+  final int durationSeconds;
 
   const ExamResultScreen({
     super.key,
     required this.questions,
     required this.userAnswers,
     this.isHistoryView = false,
+    this.durationSeconds = 0,
   });
 
   @override
@@ -50,14 +52,19 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final prof = _ctrl.getProficiencyData(_ctrl.totalScore);
+    final prof        = _ctrl.getProficiencyData(_ctrl.totalScore);
+    final cefrOverall  = _ctrl.getCefrLevel(_ctrl.totalScore, _ctrl.lToeic, _ctrl.rToeic);
+    final cefrListening = _ctrl.getCefrListening(_ctrl.lToeic);
+    final cefrReading   = _ctrl.getCefrReading(_ctrl.rToeic);
 
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text(
-          "Result Details",
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Text(
+          widget.questions.isNotEmpty
+              ? (widget.questions.first['title'] ?? "Result Details")
+              : "Result Details",
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         elevation: 0,
@@ -67,7 +74,7 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            _buildScoreHeader(_ctrl.totalScore, prof),
+            _buildScoreHeader(_ctrl.totalScore, prof, cefrOverall, cefrListening, cefrReading),
             Padding(
               padding: const EdgeInsets.all(20),
               child: Row(
@@ -116,7 +123,112 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
   //  WIDGETS
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildScoreHeader(int totalScore, Map<String, dynamic> prof) {
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '';
+    final h = seconds ~/ 3600;
+    final m = (seconds % 3600) ~/ 60;
+    final s = seconds % 60;
+    if (h > 0) return '${h}h ${m}m ${s}s';
+    return '${m}m ${s}s';
+  }
+
+  Widget _buildCefrSection(String overall, String listening, String reading) {
+    final overallColor   = ExamResultController.cefrColor(overall);
+    final listeningColor = ExamResultController.cefrColor(listening);
+    final readingColor   = ExamResultController.cefrColor(reading);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          children: [
+            // ── Overall (บน) ──────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Overall CEFR',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: overallColor,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        overall,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: overallColor,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: Colors.grey.shade200),
+            // ── Listening + Reading (ล่าง) ─────────────────────
+            IntrinsicHeight(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Listening', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                          Text(
+                            listening,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: listeningColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(width: 1, color: Colors.grey.shade200),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Reading', style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+                          Text(
+                            reading,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: readingColor),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildScoreHeader(int totalScore, Map<String, dynamic> prof,
+      String cefrOverall, String cefrListening, String cefrReading) {
     return Container(
       width: double.infinity,
       color: Colors.white,
@@ -148,6 +260,34 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
             prof['desc'],
             style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
           ),
+          const SizedBox(height: 16),
+          _buildCefrSection(cefrOverall, cefrListening, cefrReading),
+          if (widget.durationSeconds > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.timer_outlined, size: 15, color: Colors.grey.shade600),
+                  const SizedBox(width: 5),
+                  Text(
+                    'Time used: ${_formatDuration(widget.durationSeconds)}',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade700,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

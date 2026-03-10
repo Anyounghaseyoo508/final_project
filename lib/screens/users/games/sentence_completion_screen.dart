@@ -45,7 +45,7 @@ class _SentenceCompletionScreenState extends State<SentenceCompletionScreen> {
   Future<void> _loadPool() async {
     try {
       final response = await _supabase
-          .from('vocabulary')
+          .from('vocabularies')
           .select('headword, Example_Sentence')
           .not('Example_Sentence', 'is', null)
           .limit(200);
