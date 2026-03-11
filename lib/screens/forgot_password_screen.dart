@@ -11,33 +11,28 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _supabase = Supabase.instance.client;
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  final _emailRegex = RegExp(r'^[\w\.\-+]+@([\w\-]+\.)+[\w\-]{2,}$');
   bool _isSubmitting = false;
 
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
-    _confirmPasswordController.dispose();
     super.dispose();
   }
 
   Future<void> _resetPassword() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text;
-    final confirmPassword = _confirmPasswordController.text;
 
-    if (email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('กรอกข้อมูลให้ครบ')),
+        const SnackBar(content: Text('กรุณากรอกอีเมล')),
       );
       return;
     }
 
-    if (password != confirmPassword) {
+    if (!_emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยืนยันรหัสผ่านไม่ตรงกัน')),
+        const SnackBar(content: Text('รูปแบบอีเมลไม่ถูกต้อง')),
       );
       return;
     }
@@ -45,39 +40,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final response = await _supabase.functions.invoke(
-        'reset-password',
-        body: {
-          'email': email,
-          'new_password': password,
-        },
+      final redirectTo =
+          Uri.base.hasAuthority ? '${Uri.base.origin}/#/login' : null;
+      await _supabase.auth.resetPasswordForEmail(
+        email,
+        redirectTo: redirectTo,
       );
 
       if (!mounted) return;
-
-      final data = response.data;
-      if (response.status >= 200 && response.status < 300) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data is Map && data['message'] != null
-                ? '${data['message']}'
-                : 'รีเซ็ตรหัสผ่านสำเร็จ'),
-          ),
-        );
-        Navigator.pop(context);
-        return;
-      }
-
-      final message = data is Map && data['error'] != null
-          ? '${data['error']}'
-          : 'รีเซ็ตรหัสผ่านไม่สำเร็จ';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว กรุณาตรวจสอบอีเมล'),
+        ),
+      );
+      Navigator.pop(context);
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ส่งลิงก์ไม่สำเร็จ: ${e.message}')),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('รีเซ็ตรหัสผ่านไม่สำเร็จ: $e')),
+        SnackBar(content: Text('ส่งลิงก์ไม่สำเร็จ: $e')),
       );
     } finally {
       if (mounted) {
@@ -98,12 +83,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const SizedBox(height: 16),
               const Text(
-                'ตั้งรหัสผ่านใหม่',
+                'ลืมรหัสผ่าน',
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               const Text(
-                'กรอกอีเมลและรหัสผ่านใหม่เพื่อรีเซ็ตในแอป',
+                'กรอกอีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 32),
@@ -116,23 +101,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'รหัสผ่านใหม่',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'ยืนยันรหัสผ่านใหม่',
-                  border: OutlineInputBorder(),
-                ),
-              ),
               const SizedBox(height: 24),
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _resetPassword,
@@ -145,7 +113,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('รีเซ็ตรหัสผ่าน'),
+                    : const Text('ส่งลิงก์รีเซ็ตรหัสผ่าน'),
               ),
             ],
           ),

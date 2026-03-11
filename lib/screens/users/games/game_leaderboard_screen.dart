@@ -38,32 +38,16 @@ class _GameLeaderboardScreenState extends State<GameLeaderboardScreen>
     });
 
     try {
-      final usersResponse =
-          await _supabase.from('users').select('id, display_name, email');
-      final usersById = <String, Map<String, dynamic>>{
-        for (final row in usersResponse)
-          row['id'] as String: Map<String, dynamic>.from(row as Map),
-      };
-
       for (final gameType in _gameTypes.keys) {
         final response = await _supabase
             .from('game_scores')
-            .select('user_id, score, moves, created_at')
+            .select('user_id, player_name, score, moves, created_at')
             .eq('game_type', gameType)
             .order('score', ascending: false)
             .order('created_at', ascending: true)
             .limit(20);
 
-        final rows = List<Map<String, dynamic>>.from(response).map((row) {
-          final userId = row['user_id'] as String?;
-          final user = userId == null ? null : usersById[userId];
-          return {
-            ...row,
-            'users': user,
-          };
-        }).toList();
-
-        _boards[gameType] = rows;
+        _boards[gameType] = List<Map<String, dynamic>>.from(response);
       }
     } catch (e) {
       _error = 'โหลดอันดับไม่สำเร็จ: $e';
@@ -77,12 +61,12 @@ class _GameLeaderboardScreenState extends State<GameLeaderboardScreen>
   }
 
   String _displayName(Map<String, dynamic> row) {
-    final user = row['users'] as Map<String, dynamic>?;
-    final displayName = user?['display_name'] as String?;
-    final email = user?['email'] as String?;
-    if (displayName != null && displayName.trim().isNotEmpty)
-      return displayName;
-    if (email != null && email.contains('@')) return email.split('@').first;
+    final playerName = row['player_name'] as String?;
+    if (playerName != null && playerName.trim().isNotEmpty) return playerName;
+    final userId = row['user_id'] as String?;
+    if (userId != null && userId.length >= 6) {
+      return 'User ${userId.substring(0, 6)}';
+    }
     return 'Unknown';
   }
 

@@ -31,6 +31,24 @@ class _MatchingGameScreenState extends State<MatchingGameScreen> {
   bool _isGameOver = false;
   Timer? _timer;
 
+  Future<String> _currentPlayerName(User user) async {
+    try {
+      final profile = await _supabase
+          .from('users')
+          .select('display_name, email')
+          .eq('id', user.id)
+          .maybeSingle();
+      final displayName = (profile?['display_name'] as String?)?.trim();
+      if (displayName != null && displayName.isNotEmpty) {
+        return displayName;
+      }
+    } catch (_) {}
+
+    final email = user.email ?? '';
+    if (email.contains('@')) return email.split('@').first;
+    return 'Player';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -161,8 +179,10 @@ class _MatchingGameScreenState extends State<MatchingGameScreen> {
     final user = _supabase.auth.currentUser;
     if (user != null) {
       try {
+        final playerName = await _currentPlayerName(user);
         await _supabase.from('game_scores').insert({
           'user_id': user.id,
+          'player_name': playerName,
           'game_type': 'matching',
           'score': _score,
           'moves': _moves,

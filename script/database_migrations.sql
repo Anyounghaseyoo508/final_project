@@ -4,6 +4,7 @@
 CREATE TABLE IF NOT EXISTS game_scores (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  player_name TEXT,
   game_type TEXT NOT NULL, -- 'matching', 'sentence_completion', 'word_search'
   score INTEGER NOT NULL DEFAULT 0,
   moves INTEGER, -- สำหรับเกม matching
@@ -34,6 +35,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sign_in_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+ALTER TABLE game_scores ADD COLUMN IF NOT EXISTS player_name TEXT;
 
 -- เพิ่มคอลัมน์สำหรับวิเคราะห์เวลาในการทำข้อสอบ
 ALTER TABLE exam_submissions ADD COLUMN IF NOT EXISTS duration_seconds INTEGER;
@@ -105,6 +107,11 @@ DROP POLICY IF EXISTS "Users can view their own game scores" ON game_scores;
 CREATE POLICY "Users can view their own game scores"
 ON game_scores FOR SELECT
 USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Authenticated users can view all game scores" ON game_scores;
+CREATE POLICY "Authenticated users can view all game scores"
+ON game_scores FOR SELECT
+USING (auth.uid() IS NOT NULL);
 
 DROP POLICY IF EXISTS "Users can insert their own game scores" ON game_scores;
 CREATE POLICY "Users can insert their own game scores"

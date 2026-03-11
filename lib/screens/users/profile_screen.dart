@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +15,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _supabase = Supabase.instance.client;
   final _picker = ImagePicker();
+  final _emailRegex = RegExp(r'^[\w\.\-+]+@([\w\-]+\.)+[\w\-]{2,}$');
 
   String? _avatarUrl;
   String _displayName = '';
@@ -60,14 +60,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
-
-      final file = File(pickedFile.path);
       final fileName =
           '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final Uint8List bytes = await pickedFile.readAsBytes();
 
       await _supabase.storage
           .from('avatars')
-          .upload(fileName, file, fileOptions: const FileOptions(upsert: true));
+          .uploadBinary(
+            fileName,
+            bytes,
+            fileOptions: const FileOptions(
+              upsert: true,
+              contentType: 'image/jpeg',
+            ),
+          );
 
       final publicUrl = _supabase.storage
           .from('avatars')
@@ -145,11 +151,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _changeEmail() async {
+    final currentEmail =
+        (_supabase.auth.currentUser?.email ?? '').trim().toLowerCase();
     final controller = TextEditingController(
-      text: _supabase.auth.currentUser?.email ?? '',
+      text: currentEmail,
     );
 
-    final newEmail = await showDialog<String>(
+    final inputEmail = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('เปลี่ยนอีเมล'),
@@ -171,7 +179,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
-    if (newEmail == null || newEmail.isEmpty) return;
+    if (inputEmail == null || inputEmail.isEmpty) return;
+    final newEmail = inputEmail.trim().toLowerCase();
+
+    if (newEmail == currentEmail) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('อีเมลใหม่ต้องไม่ซ้ำกับอีเมลปัจจุบัน')),
+      );
+      return;
+    }
+
+    if (!_emailRegex.hasMatch(newEmail)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('รูปแบบอีเมลไม่ถูกต้อง')),
+      );
+      return;
+    }
 
     try {
       await _supabase.auth.updateUser(UserAttributes(email: newEmail));
@@ -190,6 +215,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       );
       setState(() {});
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      var message = e.message;
+      if (e.message.contains('email_address_invalid')) {
+        message = 'รูปแบบอีเมลไม่ถูกต้อง';
+      } else if (e.message.contains('already been registered')) {
+        message = 'อีเมลนี้ถูกใช้งานแล้ว';
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปลี่ยนอีเมลไม่สำเร็จ: $message')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -199,18 +235,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _changePassword() async {
-    final controller = TextEditingController();
+    final passwordController = TextEditingController();
+    final confirmController = TextEditingController();
 
     final newPassword = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('เปลี่ยนรหัสผ่าน'),
-        content: TextField(
-          controller: controller,
-          obscureText: true,
-          decoration: const InputDecoration(
-            labelText: 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)',
-          ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: passwordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: confirmController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'ยืนยันรหัสผ่านใหม่',
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
@@ -218,14 +268,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: const Text('ยกเลิก'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
+            onPressed: () {
+              final password = passwordController.text;
+              final confirm = confirmController.text;
+              if (password != confirm) {
+                Navigator.pop(context, '__MISMATCH__');
+                return;
+              }
+              Navigator.pop(context, password);
+            },
             child: const Text('บันทึก'),
           ),
         ],
       ),
     );
 
-    if (newPassword == null || newPassword.length < 6) return;
+    if (newPassword == null) return;
+    if (newPassword == '__MISMATCH__') {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('ยืนยันรหัสผ่านไม่ตรงกัน')),
+      );
+      return;
+    }
+    if (newPassword.length < 6) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร')),
+      );
+      return;
+    }
 
     try {
       await _supabase.auth.updateUser(UserAttributes(password: newPassword));
@@ -233,6 +305,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ')));
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: ${e.message}')));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
