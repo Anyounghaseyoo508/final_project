@@ -59,37 +59,19 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
 
-      // ── Admin: ตรวจ session timeout ────────────────────────────────────────
-      // Admin ใช้บนเว็บ ควรมีการ timeout เพื่อความปลอดภัย
       if (role == 'admin') {
-        final lastSignInStr = session.user.lastSignInAt;
-
-        if (lastSignInStr != null) {
-          final lastSignIn = DateTime.parse(lastSignInStr);
-          final elapsed = DateTime.now().toUtc().difference(lastSignIn);
-
-          // ถ้า login มานานเกิน 8 ชั่วโมง (ไม่ได้ใช้งาน) → บังคับ logout
-          // เปลี่ยน inHours เป็น inMinutes ถ้าอยากให้ timeout เร็วกว่านี้
-          if (elapsed.inHours >= 8) {
-            await supabase.auth.signOut();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Session หมดอายุ กรุณาเข้าสู่ระบบใหม่')),
-              );
-              Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-            }
-            return;
-          }
-        }
-
-        // Admin session ยังใช้ได้ → ไปหน้า Admin
-        Navigator.pushNamedAndRemoveUntil(context, '/admin_home', (route) => false);
-      } else {
-        // ── User ปกติ: ไม่มี timeout → เข้าแอปเลย ───────────────────────────
-        // Supabase จะ refresh token ให้อัตโนมัติ user ไม่ต้อง login ใหม่
-        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+        await supabase.auth.signOut();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('บัญชีแอดมินต้องใช้งานผ่าน Admin Web'),
+          ),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        return;
       }
+
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     } catch (e) {
       // ถ้าดึงข้อมูลไม่ได้ (เช่น ไม่มี internet) → ไปหน้า Login
       if (mounted) Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);

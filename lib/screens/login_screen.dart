@@ -95,11 +95,18 @@ class _LoginScreenState extends State<LoginScreen>
           .eq('id', res.user!.id);
 
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        role == 'admin' ? '/admin_home' : '/',
-        (route) => false,
-      );
+
+      if (role == 'admin') {
+        await _supabase.auth.signOut();
+        if (!mounted) return;
+        _showSnackBar(
+          'บัญชีแอดมินต้องใช้งานผ่าน Admin Web',
+          isError: true,
+        );
+        return;
+      }
+
+      Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
     } on AuthException catch (e) {
       if (!mounted) return;
       _showSnackBar(
