@@ -60,8 +60,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) return;
-      final fileName =
-          '${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName = '${user.id}/${DateTime.now().millisecondsSinceEpoch}.jpg';
       final Uint8List bytes = await pickedFile.readAsBytes();
 
       await _supabase.storage
@@ -79,10 +78,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .from('avatars')
           .getPublicUrl(fileName);
 
-      await _supabase
-          .from('users')
-          .update({'avatar_url': publicUrl})
-          .eq('id', user.id);
+      await _supabase.from('users').upsert({
+        'id': user.id,
+        'email': user.email,
+        'avatar_url': publicUrl,
+      });
 
       if (!mounted) return;
       setState(() {
@@ -132,10 +132,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
 
     try {
-      await _supabase
-          .from('users')
-          .update({'display_name': result})
-          .eq('id', user.id);
+      await _supabase.from('users').upsert({
+        'id': user.id,
+        'email': user.email,
+        'display_name': result,
+      });
 
       if (!mounted) return;
       setState(() => _displayName = result);
@@ -202,10 +203,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await _supabase.auth.updateUser(UserAttributes(email: newEmail));
       final user = _supabase.auth.currentUser;
       if (user != null) {
-        await _supabase
-            .from('users')
-            .update({'email': newEmail})
-            .eq('id', user.id);
+        await _supabase.from('users').upsert({
+          'id': user.id,
+          'email': newEmail,
+          'display_name': _displayName,
+          'avatar_url': _avatarUrl,
+        });
       }
 
       if (!mounted) return;

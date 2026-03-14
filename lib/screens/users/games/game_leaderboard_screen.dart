@@ -45,9 +45,31 @@ class _GameLeaderboardScreenState extends State<GameLeaderboardScreen>
             .eq('game_type', gameType)
             .order('score', ascending: false)
             .order('created_at', ascending: true)
-            .limit(20);
+            .limit(200);
 
-        _boards[gameType] = List<Map<String, dynamic>>.from(response);
+        final seenUsers = <String>{};
+        final uniqueRows = <Map<String, dynamic>>[];
+
+        for (final item in List<Map<String, dynamic>>.from(response)) {
+          final userId = (item['user_id'] as String?)?.trim();
+          final playerName = (item['player_name'] as String?)?.trim();
+          final dedupeKey = userId?.isNotEmpty == true
+              ? 'uid:$userId'
+              : 'name:${(playerName ?? '').toLowerCase()}';
+
+          if (dedupeKey == 'name:' || seenUsers.contains(dedupeKey)) {
+            continue;
+          }
+
+          seenUsers.add(dedupeKey);
+          uniqueRows.add(item);
+
+          if (uniqueRows.length == 20) {
+            break;
+          }
+        }
+
+        _boards[gameType] = uniqueRows;
       }
     } catch (e) {
       _error = 'โหลดอันดับไม่สำเร็จ: $e';
@@ -63,11 +85,7 @@ class _GameLeaderboardScreenState extends State<GameLeaderboardScreen>
   String _displayName(Map<String, dynamic> row) {
     final playerName = row['player_name'] as String?;
     if (playerName != null && playerName.trim().isNotEmpty) return playerName;
-    final userId = row['user_id'] as String?;
-    if (userId != null && userId.length >= 6) {
-      return 'User ${userId.substring(0, 6)}';
-    }
-    return 'Unknown';
+    return 'Anonymous';
   }
 
   @override

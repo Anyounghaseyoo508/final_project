@@ -37,6 +37,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_sign_in_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 ALTER TABLE game_scores ADD COLUMN IF NOT EXISTS player_name TEXT;
 
+UPDATE game_scores gs
+SET player_name = COALESCE(
+  NULLIF(TRIM(u.display_name), ''),
+  SPLIT_PART(COALESCE(u.email, ''), '@', 1),
+  'Player'
+)
+FROM users u
+WHERE u.id = gs.user_id
+  AND (gs.player_name IS NULL OR TRIM(gs.player_name) = '');
+
 -- เพิ่มคอลัมน์สำหรับวิเคราะห์เวลาในการทำข้อสอบ
 ALTER TABLE exam_submissions ADD COLUMN IF NOT EXISTS duration_seconds INTEGER;
 
