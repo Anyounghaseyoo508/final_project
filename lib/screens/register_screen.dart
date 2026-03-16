@@ -29,7 +29,6 @@ class _RegisterScreenState extends State<RegisterScreen>
   late Animation<Offset> _slideAnim;
 
   static const Color _blue = Color(0xFF1A56DB);
-  static const Color _blueLight = Color(0xFF3B82F6);
   static const Color _bg = Color(0xFFF0F5FF);
   static const Color _textPri = Color(0xFF111827);
   static const Color _textMut = Color(0xFF6B7280);
@@ -117,27 +116,37 @@ class _RegisterScreenState extends State<RegisterScreen>
       );
 
       final User? user = res.user;
-      if (user != null) {
-        await _supabase.from('users').insert({
-          'id': user.id,
-          'email': _emailController.text.trim(),
-          'display_name': _nameController.text.trim(),
-          'role': 'user',
-          'is_active': true,
-        });
 
-        if (mounted) {
-          _showSnackBar('สมัครสมาชิกสำเร็จ! ยินดีต้อนรับ');
-          await Future.delayed(const Duration(milliseconds: 900));
-          if (!mounted) return;
-          Navigator.pushReplacementNamed(context, '/');
-        }
+      // ✅ ถ้า identities ว่าง = email ซ้ำใน Supabase Auth (ไม่ throw error แต่คืน user เดิม)
+      if (user == null || user.identities == null || user.identities!.isEmpty) {
+        if (mounted) _showSnackBar('อีเมลนี้ถูกใช้งานแล้ว', isError: true);
+        return;
+      }
+
+      // ✅ ใช้ upsert แทน insert เพื่อป้องกัน 409 Conflict
+      await _supabase.from('users').upsert({
+        'id': user.id,
+        'email': _emailController.text.trim(),
+        'display_name': _nameController.text.trim(),
+        'role': 'user',
+        'is_active': true,
+      });
+
+      if (mounted) {
+        _showSnackBar('สมัครสมาชิกสำเร็จ! ยินดีต้อนรับ');
+        await Future.delayed(const Duration(milliseconds: 900));
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, '/');
       }
     } on AuthException catch (e) {
       if (mounted) {
         var msg = e.message;
         if (e.statusCode == '429') msg = 'ส่งคำขอถี่เกินไป กรุณารอสักครู่';
-        if (e.message.contains('registered')) msg = 'อีเมลนี้ถูกใช้งานแล้ว';
+        if (e.statusCode == '422' ||
+            e.message.contains('registered') ||
+            e.message.contains('already')) {
+          msg = 'อีเมลนี้ถูกใช้งานแล้ว';
+        }
         _showSnackBar(msg, isError: true);
       }
     } catch (_) {
