@@ -8,12 +8,22 @@ class ExamResultScreen extends StatefulWidget {
   final bool isHistoryView;
   final int durationSeconds;
 
+  // คะแนนสำเร็จรูปจาก submitExam() — ถ้าส่งมาจะไม่ query Supabase ซ้ำ
+  final int? precomputedLRaw;
+  final int? precomputedRRaw;
+  final int? precomputedLToeic;
+  final int? precomputedRToeic;
+
   const ExamResultScreen({
     super.key,
     required this.questions,
     required this.userAnswers,
     this.isHistoryView = false,
     this.durationSeconds = 0,
+    this.precomputedLRaw,
+    this.precomputedRRaw,
+    this.precomputedLToeic,
+    this.precomputedRToeic,
   });
 
   @override
@@ -31,10 +41,22 @@ class _ExamResultScreenState extends State<ExamResultScreen> {
     _ctrl.addListener(() {
       if (mounted) setState(() {});
     });
-    _ctrl.calculateAndFetchScores(
-      questions: widget.questions,
-      userAnswers: widget.userAnswers,
-    );
+
+    // ถ้ามีคะแนนสำเร็จรูปจาก submitExam() → ใช้เลย ไม่ต้อง query Supabase ซ้ำ
+    // ถ้าไม่มี (เช่น History View) → คิดคะแนนใหม่จาก questions
+    if (widget.precomputedLToeic != null && widget.precomputedRToeic != null) {
+      _ctrl.loadFromPrecomputed(
+        lRaw:   widget.precomputedLRaw   ?? 0,
+        rRaw:   widget.precomputedRRaw   ?? 0,
+        lToeic: widget.precomputedLToeic ?? 0,
+        rToeic: widget.precomputedRToeic ?? 0,
+      );
+    } else {
+      _ctrl.calculateAndFetchScores(
+        questions: widget.questions,
+        userAnswers: widget.userAnswers,
+      );
+    }
   }
 
   @override

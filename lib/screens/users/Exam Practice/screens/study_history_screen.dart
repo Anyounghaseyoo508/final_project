@@ -161,35 +161,6 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
   //  WIDGETS
   // ─────────────────────────────────────────────────────────────
 
-  String _formatDuration(int seconds) {
-    if (seconds <= 0) return '';
-    final h = seconds ~/ 3600;
-    final m = (seconds % 3600) ~/ 60;
-    final s = seconds % 60;
-    if (h > 0) return '${h}h ${m}m ${s}s';
-    return '${m}m ${s}s';
-  }
-
-  String _cefrFromToeic(int total, int listening, int reading) {
-    if (total >= 945 && listening >= 490 && reading >= 455) return 'C1';
-    if (total >= 785 && listening >= 400 && reading >= 385) return 'B2';
-    if (total >= 550 && listening >= 275 && reading >= 275) return 'B1';
-    if (total >= 225 && listening >= 110 && reading >= 115) return 'A2';
-    if (total >= 120 && listening >= 60  && reading >= 60)  return 'A1';
-    return '-';
-  }
-
-  Color _cefrColor(String cefr) {
-    switch (cefr) {
-      case 'C1': return Colors.indigo.shade700;
-      case 'B2': return Colors.green.shade700;
-      case 'B1': return Colors.blue.shade700;
-      case 'A2': return Colors.orange.shade700;
-      case 'A1': return Colors.red.shade700;
-      default:   return Colors.grey;
-    }
-  }
-
   Widget _buildHistoryCard(Map<String, dynamic> item) {
     final DateTime createdAt = DateTime.parse(item['created_at']).toLocal();
     final String formattedDate =
@@ -297,10 +268,15 @@ class _StudyHistoryScreenState extends State<StudyHistoryScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => ExamResultScreen(
-          questions: questions,
-          userAnswers: item['answers'] ?? {},
-          isHistoryView: true,
-          durationSeconds: item['duration_seconds'] ?? 0,
+          questions:         questions,
+          userAnswers:       item['answers'] ?? {},
+          isHistoryView:     true,
+          durationSeconds:   item['duration_seconds'] ?? 0,
+          // ใช้คะแนนที่ save ไว้ใน DB เลย ไม่ต้องคิดใหม่
+          precomputedLRaw:   item['listening_raw'],
+          precomputedRRaw:   item['reading_raw'],
+          precomputedLToeic: item['l_toeic'],
+          precomputedRToeic: item['r_toeic'],
         ),
       ),
     );

@@ -15,8 +15,23 @@ class ExamResultController extends ChangeNotifier {
   int get totalScore => lToeic + rToeic;
 
   // ─── Methods ─────────────────────────────────────────────────
-  // หน้าที่เดียวของ controller นี้คือ "คำนวณและแสดงผล" เท่านั้น
-  // การ save ทั้งหมดทำใน practice_exam_controller.submitExam() แล้ว
+
+  /// ใช้เมื่อมีคะแนนสำเร็จรูปจาก submitExam() แล้ว — ไม่ต้อง query Supabase ซ้ำ
+  void loadFromPrecomputed({
+    required int lRaw,
+    required int rRaw,
+    required int lToeic,
+    required int rToeic,
+  }) {
+    this.lRaw   = lRaw;
+    this.rRaw   = rRaw;
+    this.lToeic = lToeic;
+    this.rToeic = rToeic;
+    isLoading   = false;
+    notifyListeners();
+  }
+
+  /// ใช้เมื่อดูประวัติย้อนหลัง (History View) — ต้องคิดคะแนนใหม่จาก questions
   Future<void> calculateAndFetchScores({
     required List<Map<String, dynamic>> questions,
     required Map<dynamic, dynamic> userAnswers,

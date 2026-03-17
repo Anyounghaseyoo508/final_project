@@ -35,6 +35,12 @@ class PracticeExamController extends ChangeNotifier {
   String? currentGroupImageUrl;
   bool _disposed = false;
 
+  // คะแนนหลัง submit — ใช้ส่งต่อไปหน้า Result โดยไม่ต้องคิดซ้ำ
+  int lRaw   = 0;
+  int rRaw   = 0;
+  int lToeic = 0;
+  int rToeic = 0;
+
   // Audio State
   PlayerState playerState = PlayerState.stopped;
   Duration position = Duration.zero;
@@ -518,28 +524,31 @@ class PracticeExamController extends ChangeNotifier {
   }
 
   Future<void> submitExam() async {
-    int lRaw = 0;
-    int rRaw = 0;
+    int lRawCount = 0;
+    int rRawCount = 0;
 
     for (int i = 0; i < questions.length; i++) {
       final q = questions[i];
       final userAnswer = userAnswers[i];
       final bool isCorrect = userAnswer != null && userAnswer == q['correct_answer'];
       if (isCorrect) {
-        if ((q['part'] ?? 1) <= 4) lRaw++; else rRaw++;
+        if ((q['part'] ?? 1) <= 4) lRawCount++; else rRawCount++;
       }
     }
 
     // ── แปลงคะแนนดิบ → TOEIC scaled score ───────────────────────
     final convResults = await Future.wait([
       _supabase.from('toeic_conversion').select('listening_score')
-          .eq('raw_score', lRaw).maybeSingle(),
+          .eq('raw_score', lRawCount).maybeSingle(),
       _supabase.from('toeic_conversion').select('reading_score')
-          .eq('raw_score', rRaw).maybeSingle(),
+          .eq('raw_score', rRawCount).maybeSingle(),
     ]);
 
-    final lToeic = (convResults[0]?['listening_score'] as int?) ?? lRaw;
-    final rToeic = (convResults[1]?['reading_score']   as int?) ?? rRaw;
+    // บันทึกลง public fields เพื่อส่งต่อหน้า Result
+    lRaw   = lRawCount;
+    rRaw   = rRawCount;
+    lToeic = (convResults[0]?['listening_score'] as int?) ?? lRawCount;
+    rToeic = (convResults[1]?['reading_score']   as int?) ?? rRawCount;
     final total  = lToeic + rToeic;
     final level  = _proficiencyLevel(total);
 
@@ -561,7 +570,7 @@ class PracticeExamController extends ChangeNotifier {
       'r_toeic':            rToeic,
       'total_score':        total,
       'cefr_level':         level,
-      'duration_seconds':   durationSeconds, // ← บันทึกเวลา
+      'duration_seconds':   durationSeconds,
     });
 
     // ล้าง session และแจ้ง UI

@@ -34,9 +34,13 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
           context,
           MaterialPageRoute(
             builder: (_) => ExamResultScreen(
-              questions: _ctrl.questions,
-              userAnswers: _ctrl.userAnswers,
-              durationSeconds: _ctrl.elapsedSeconds,
+              questions:           _ctrl.questions,
+              userAnswers:         _ctrl.userAnswers,
+              durationSeconds:     _ctrl.elapsedSeconds,
+              precomputedLRaw:     _ctrl.lRaw,
+              precomputedRRaw:     _ctrl.rRaw,
+              precomputedLToeic:   _ctrl.lToeic,
+              precomputedRToeic:   _ctrl.rToeic,
             ),
           ),
         );
