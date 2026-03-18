@@ -34,13 +34,13 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
           context,
           MaterialPageRoute(
             builder: (_) => ExamResultScreen(
-              questions:           _ctrl.questions,
-              userAnswers:         _ctrl.userAnswers,
-              durationSeconds:     _ctrl.elapsedSeconds,
-              precomputedLRaw:     _ctrl.lRaw,
-              precomputedRRaw:     _ctrl.rRaw,
-              precomputedLToeic:   _ctrl.lToeic,
-              precomputedRToeic:   _ctrl.rToeic,
+              questions: _ctrl.questions,
+              userAnswers: _ctrl.userAnswers,
+              durationSeconds: _ctrl.elapsedSeconds,
+              precomputedLRaw: _ctrl.lRaw,
+              precomputedRRaw: _ctrl.rRaw,
+              precomputedLToeic: _ctrl.lToeic,
+              precomputedRToeic: _ctrl.rToeic,
             ),
           ),
         );
@@ -54,7 +54,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
   }
 
   Future<void> _checkAndStart() async {
-    final hasSession = await PracticeExamController.hasSavedSession(widget.testId);
+    final hasSession =
+        await PracticeExamController.hasSavedSession(widget.testId);
     if (!mounted) return;
 
     if (hasSession) {
@@ -67,7 +68,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('เริ่มใหม่', style: TextStyle(color: Colors.red)),
+              child:
+                  const Text('เริ่มใหม่', style: TextStyle(color: Colors.red)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
@@ -225,8 +227,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                             const Center(child: Text("Loading questions...")),
                           ..._ctrl.currentGroupQuestions.map((q) {
                             final actualIndex = _ctrl.questions.indexOf(q);
-                            final qPartId =
-                                (q['part'] as num?)?.toInt() ?? 1;
+                            final qPartId = (q['part'] as num?)?.toInt() ?? 1;
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -247,10 +248,14 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                                     ),
                                   ),
                                 const SizedBox(height: 16),
-                                _buildOption(actualIndex, "A", q['option_a'], qPartId),
-                                _buildOption(actualIndex, "B", q['option_b'], qPartId),
-                                _buildOption(actualIndex, "C", q['option_c'], qPartId),
-                                _buildOption(actualIndex, "D", q['option_d'], qPartId),
+                                _buildOption(
+                                    actualIndex, "A", q['option_a'], qPartId),
+                                _buildOption(
+                                    actualIndex, "B", q['option_b'], qPartId),
+                                _buildOption(
+                                    actualIndex, "C", q['option_c'], qPartId),
+                                _buildOption(
+                                    actualIndex, "D", q['option_d'], qPartId),
                                 const Divider(height: 40),
                               ],
                             );
@@ -291,8 +296,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
           children: [
             Text(
               'ตอบแล้ว ${_ctrl.userAnswers.length}/${_ctrl.questions.length} ข้อ',
-              style: TextStyle(
-                  color: Colors.grey.shade600, fontSize: 13),
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
             ),
             const SizedBox(height: 12),
             const Text('ต้องการทำอะไร?'),
@@ -384,8 +388,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
               if (!hideText) ...[
                 const SizedBox(width: 15),
                 Expanded(
-                    child: Text(value,
-                        style: const TextStyle(fontSize: 16))),
+                    child: Text(value, style: const TextStyle(fontSize: 16))),
               ],
             ],
           ),
@@ -395,11 +398,11 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
   }
 
   /// แปลง Duration → M:SS (เช่น 0:00, 0:01, 1:23)
-  String _formatAudioTime(Duration d) {
+  /*String _formatAudioTime(Duration d) {
     final m = d.inMinutes;
     final s = (d.inSeconds % 60).toString().padLeft(2, '0');
     return "$m:$s";
-  }
+  }*/
 
   /// แถบแสดงสถานะ Audio
   Widget _buildAudioControlBar() {
@@ -427,40 +430,13 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
           ),
           const SizedBox(width: 15),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isPlaying ? "Listening Audio Playing..." : "Audio Standby",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: isPlaying ? Colors.indigo : Colors.grey,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: _ctrl.duration.inSeconds > 0
-                        ? _ctrl.position.inSeconds / _ctrl.duration.inSeconds
-                        : 0.0,
-                    backgroundColor: Colors.grey.shade200,
-                    valueColor:
-                        const AlwaysStoppedAnimation<Color>(Colors.indigo),
-                    minHeight: 6,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 15),
-          Text(
-            _formatAudioTime(_ctrl.position),
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.bold,
-              color: Colors.indigo,
+            child: Text(
+              isPlaying ? "Listening Audio Playing..." : "Audio Standby",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isPlaying ? Colors.indigo : Colors.grey,
+              ),
             ),
           ),
         ],
@@ -482,8 +458,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.indigo.withOpacity(0.1)),
         ),
-        child: Text(transcript,
-            style: const TextStyle(fontSize: 16, height: 1.6)),
+        child:
+            Text(transcript, style: const TextStyle(fontSize: 16, height: 1.6)),
       );
     }
 
@@ -518,8 +494,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                           groupImages[index]['image_url']?.toString() ?? "";
                       if (imageUrl.isEmpty) {
                         return const Center(
-                            child: Icon(Icons.broken_image,
-                                color: Colors.grey));
+                            child:
+                                Icon(Icons.broken_image, color: Colors.grey));
                       }
                       return InteractiveViewer(
                         minScale: 1.0,
@@ -535,8 +511,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                                   progress == null
                                       ? child
                                       : const Center(
-                                          child:
-                                              CircularProgressIndicator())),
+                                          child: CircularProgressIndicator())),
                         ),
                       );
                     },
@@ -622,9 +597,9 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
   /// ปุ่ม Back / Next / Submit
   Widget _buildNavigationButtons() {
     final canGoBack = _ctrl.currentPartId >= 5;
-    final isLastGroup = _ctrl.currentIndex +
-            _ctrl.currentGroupQuestions.length >=
-        _ctrl.questions.length;
+    final isLastGroup =
+        _ctrl.currentIndex + _ctrl.currentGroupQuestions.length >=
+            _ctrl.questions.length;
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -639,12 +614,13 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
               child: OutlinedButton(
                 onPressed: () {
                   if (_ctrl.currentIndex > 0) {
-                    final prevPart = _ctrl.questions[_ctrl.currentIndex - 1]['part'];
+                    final prevPart =
+                        _ctrl.questions[_ctrl.currentIndex - 1]['part'];
                     if (prevPart <= 4) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                            content: Text(
-                                "ไม่สามารถย้อนกลับไปพาร์ท Listening ได้")),
+                            content:
+                                Text("ไม่สามารถย้อนกลับไปพาร์ท Listening ได้")),
                       );
                       return;
                     }
@@ -666,7 +642,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                       if (!mounted) return;
                       // ถ้า submit เสร็จ ให้ navigate ไปหน้าผล
                       if (_ctrl.questions.isNotEmpty &&
-                          _ctrl.currentIndex + _ctrl.currentGroupQuestions.length >=
+                          _ctrl.currentIndex +
+                                  _ctrl.currentGroupQuestions.length >=
                               _ctrl.questions.length) {
                         // submitExam ถูกเรียกภายใน handleNextStep อยู่แล้ว
                         // แต่ต้อง navigate หลัง submit
@@ -720,8 +697,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                     Icon(
                       Icons.timer_outlined,
                       size: 18,
-                      color:
-                          _ctrl.isTimerWarning ? Colors.red : Colors.indigo,
+                      color: _ctrl.isTimerWarning ? Colors.red : Colors.indigo,
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -730,9 +706,8 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                         fontFamily: 'monospace',
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: _ctrl.isTimerWarning
-                            ? Colors.red
-                            : Colors.indigo,
+                        color:
+                            _ctrl.isTimerWarning ? Colors.red : Colors.indigo,
                       ),
                     ),
                   ],
@@ -751,14 +726,15 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
             const SizedBox(height: 20),
             if (_ctrl.partDirections[partId]?['image_url'] != null)
               Expanded(
-                child: Image.network(
-                    _ctrl.partDirections[partId]!['image_url']),
+                child:
+                    Image.network(_ctrl.partDirections[partId]!['image_url']),
               ),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () => _ctrl.startQuestions(partId), // เรียก Controller
+                onPressed: () =>
+                    _ctrl.startQuestions(partId), // เรียก Controller
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo,
                   foregroundColor: Colors.white,
@@ -790,8 +766,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
         child: Column(
           children: [
             const Text("Question Map",
-                style:
-                    TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -806,8 +781,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
             const Divider(height: 30),
             Expanded(
               child: GridView.builder(
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 5,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 10,
@@ -816,8 +790,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                 itemBuilder: (context, index) {
                   final targetQ = _ctrl.questions[index];
                   final int targetPart = targetQ['part'] ?? 1;
-                  final bool isAnswered =
-                      _ctrl.userAnswers.containsKey(index);
+                  final bool isAnswered = _ctrl.userAnswers.containsKey(index);
                   final bool isCurrent = index == _ctrl.currentIndex;
 
                   bool isLocked = false;
@@ -856,9 +829,7 @@ class _PracticeExamScreenState extends State<PracticeExamScreen>
                             fontWeight: FontWeight.bold,
                             color: isLocked
                                 ? Colors.grey.shade400
-                                : (isCurrent
-                                    ? Colors.white
-                                    : Colors.black87),
+                                : (isCurrent ? Colors.white : Colors.black87),
                           ),
                         ),
                       ),
