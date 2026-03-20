@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../services/app_theme_service.dart';
-
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -214,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('ส่งลิงก์ยืนยันอีเมลใหม่แล้ว กรุณาเช็กอีเมล'),
+          content: Text('ส่งลิงก์ยืนยันอีเมลใหม่แล้ว กรุณาเช็กอีเมลและกดยืนยันก่อนใช้งาน'),
         ),
       );
       setState(() {});
@@ -433,15 +431,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const Divider(height: 32),
                   ListTile(
-                    leading: const Icon(Icons.settings),
-                    title: const Text('ตั้งค่า'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                    ),
-                  ),
-                  ListTile(
                     leading: const Icon(Icons.logout, color: Colors.red),
                     title: const Text(
                       'ออกจากระบบ',
@@ -468,105 +457,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-    );
-  }
-}
-
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
-}
-
-class _SettingsScreenState extends State<SettingsScreen> {
-  final _supabase = Supabase.instance.client;
-
-  bool _notificationsEnabled = true;
-  bool _soundEnabled = true;
-  bool _darkMode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      final response = await _supabase
-          .from('user_settings')
-          .select()
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-      if (response != null && mounted) {
-        setState(() {
-          _notificationsEnabled = response['notifications_enabled'] ?? true;
-          _soundEnabled = response['sound_enabled'] ?? true;
-          _darkMode = response['dark_mode'] ?? false;
-        });
-      }
-      AppThemeService.setDarkMode(_darkMode);
-    } catch (_) {}
-  }
-
-  Future<void> _saveSetting(String key, bool value) async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-
-    try {
-      await _supabase.from('user_settings').upsert({
-        'user_id': user.id,
-        key: value,
-      });
-    } catch (_) {}
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('ตั้งค่า')),
-      body: ListView(
-        children: [
-          SwitchListTile(
-            title: const Text('การแจ้งเตือน'),
-            subtitle: const Text('รับการแจ้งเตือนจากแอป'),
-            value: _notificationsEnabled,
-            onChanged: (value) {
-              setState(() => _notificationsEnabled = value);
-              _saveSetting('notifications_enabled', value);
-            },
-          ),
-          SwitchListTile(
-            title: const Text('เสียง'),
-            subtitle: const Text('เปิด/ปิดเสียงในแอป'),
-            value: _soundEnabled,
-            onChanged: (value) {
-              setState(() => _soundEnabled = value);
-              _saveSetting('sound_enabled', value);
-            },
-          ),
-          SwitchListTile(
-            title: const Text('โหมดมืด'),
-            subtitle: const Text('ใช้ธีมมืดในทั้งแอป'),
-            value: _darkMode,
-            onChanged: (value) {
-              setState(() => _darkMode = value);
-              AppThemeService.setDarkMode(value);
-              _saveSetting('dark_mode', value);
-            },
-          ),
-          const Divider(),
-          const ListTile(
-            leading: Icon(Icons.info),
-            title: Text('Phase 2 profile/settings พร้อมใช้งานแล้ว'),
-          ),
-        ],
-      ),
     );
   }
 }
