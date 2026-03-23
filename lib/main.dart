@@ -73,8 +73,11 @@ class _MyAppState extends State<MyApp> {
   }
 
   bool _isRecoveryLink() {
-    return Uri.base.fragment.contains('type=recovery') ||
-        Uri.base.queryParameters['type'] == 'recovery';
+    final uri = Uri.base;
+    return uri.queryParameters['type'] == 'recovery' ||
+        uri.queryParameters.containsKey('token_hash') ||
+        uri.fragment.contains('type=recovery') ||
+        uri.fragment.contains('token_hash=');
   }
 
   @override
@@ -119,7 +122,7 @@ class _MyAppState extends State<MyApp> {
             brightness: Brightness.dark,
           ),
           themeMode: mode,
-          initialRoute: '/splash',
+          initialRoute: _isRecoveryLink() ? '/reset-password' : '/splash',
           routes: {
             '/splash': (context) => const SplashScreen(),
             '/login': (context) => const LoginScreen(),
