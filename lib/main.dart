@@ -112,14 +112,18 @@ class _MyAppState extends State<MyApp> {
           title: 'TOEIC VocabBoost',
           theme: ThemeData(
             useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A56DB)),
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1A56DB),
+              brightness: Brightness.light, // ✅ เพิ่มตรงนี้
+            ),
             scaffoldBackgroundColor: const Color(0xFFF8F9FC),
-            brightness: Brightness.light,
           ),
           darkTheme: ThemeData(
             useMaterial3: true,
-            colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1A56DB)),
-            brightness: Brightness.dark,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFF1A56DB),
+              brightness: Brightness.dark, // ✅ เพิ่มตรงนี้
+            ),
           ),
           themeMode: mode,
           initialRoute: _isRecoveryLink() ? '/reset-password' : '/splash',

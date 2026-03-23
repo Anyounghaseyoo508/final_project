@@ -673,11 +673,10 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
 
   // content height (ไม่รวม status bar)
   static const _contentMax = 64.0;
-  static const _contentMin = 52.0;
 
-  // min/max ต้องรวม statusBar เพื่อ SliverGeometry ถูกต้อง
+  // minExtent ต้องเท่ากับ maxExtent เพื่อป้องกัน SliverGeometry error
   @override double get maxExtent => _contentMax + statusBarHeight;
-  @override double get minExtent => _contentMin + statusBarHeight;
+  @override double get minExtent => _contentMax + statusBarHeight;
 
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
