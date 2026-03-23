@@ -41,7 +41,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final redirectTo =
-          Uri.base.hasAuthority ? '${Uri.base.origin}/#/login' : null;
+          Uri.base.hasAuthority ? '${Uri.base.origin}/#/reset-password' : null;
       await _supabase.auth.resetPasswordForEmail(
         email,
         redirectTo: redirectTo,

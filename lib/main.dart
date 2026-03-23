@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -6,6 +8,7 @@ import './splash_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+import 'screens/reset_password_screen.dart';
 import 'screens/users/Exam Practice/screens/practice_exam_screen.dart';
 import 'screens/users/Exam Practice/screens/study_history_screen.dart';
 import 'screens/users/Vocabulary Learning/bookmark_list_screen.dart';
@@ -44,11 +47,40 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final _supabase = Supabase.instance.client;
+  final _navigatorKey = GlobalKey<NavigatorState>();
+  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
+    _authSubscription = _supabase.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/reset-password',
+          (_) => false,
+        );
+      }
+    });
     _loadThemeFromSettings();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_isRecoveryLink()) {
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/reset-password',
+          (_) => false,
+        );
+      }
+    });
+  }
+
+  bool _isRecoveryLink() {
+    return Uri.base.fragment.contains('type=recovery') ||
+        Uri.base.queryParameters['type'] == 'recovery';
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadThemeFromSettings() async {
@@ -72,6 +104,7 @@ class _MyAppState extends State<MyApp> {
       valueListenable: AppThemeService.themeMode,
       builder: (context, mode, _) {
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'TOEIC VocabBoost',
           theme: ThemeData(
@@ -92,6 +125,7 @@ class _MyAppState extends State<MyApp> {
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
             '/forgot-password': (context) => const ForgotPasswordScreen(),
+            '/reset-password': (context) => const ResetPasswordScreen(),
             '/vocab-detail': (context) => const VocabDetailScreen(),
             '/bookmarks': (context) => const BookmarkListScreen(),
             '/': (context) => const MainShell(),
