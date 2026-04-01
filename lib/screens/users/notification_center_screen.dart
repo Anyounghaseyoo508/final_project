@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// Global notifier — ไฟล์เดียวกันก็ได้ หรือจะแยกไปไว้ lib/notifiers/unread_notifier.dart แล้ว import ก็ได้
+final unreadCountNotifier = ValueNotifier<int>(0);
+
 class NotificationCenterScreen extends StatefulWidget {
   const NotificationCenterScreen({super.key});
 
@@ -35,16 +38,22 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
           .order('created_at', ascending: false);
 
       if (!mounted) return;
+
+      final list = List<Map<String, dynamic>>.from(response);
+
+      // อัปเดต badge ทุกครั้งที่โหลดข้อมูลใหม่
+      unreadCountNotifier.value = list.where((n) => n['is_read'] != true).length;
+
       setState(() {
-        _notifications = List<Map<String, dynamic>>.from(response);
+        _notifications = list;
         _isLoading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('โหลดแจ้งเตือนไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('โหลดแจ้งเตือนไม่สำเร็จ: $e')),
+      );
     }
   }
 
@@ -52,8 +61,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     try {
       await _supabase
           .from('user_notifications')
-          .update({'is_read': true})
-          .eq('id', id);
+          .update({'is_read': true}).eq('id', id);
       await _loadNotifications();
     } catch (_) {}
   }
@@ -64,9 +72,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       await _loadNotifications();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('ลบไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ลบไม่สำเร็จ: $e')),
+      );
     }
   }
 
@@ -83,9 +91,9 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       await _loadNotifications();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('ลบที่อ่านแล้วไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ลบที่อ่านแล้วไม่สำเร็จ: $e')),
+      );
     }
   }
 
@@ -138,9 +146,8 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                 Text(item['body'] ?? ''),
                                 if (createdAt != null)
                                   Text(
-                                    DateFormat(
-                                      'dd/MM/yyyy HH:mm',
-                                    ).format(createdAt.toLocal()),
+                                    DateFormat('dd/MM/yyyy HH:mm')
+                                        .format(createdAt.toLocal()),
                                     style: const TextStyle(fontSize: 12),
                                   ),
                               ],

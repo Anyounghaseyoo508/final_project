@@ -6,34 +6,35 @@ import 'learning_resources_screen.dart';
 import '../users/Exam Practice/screens/study_history_screen.dart';
 import '../users/Exam Practice/screens/exam_list_screen.dart';
 import 'Part Practice/screens/part_practice_selector_screen.dart';
+import 'notification_center_screen.dart';
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 class _P {
-  static const bg         = Color(0xFFF8F9FC);
-  static const surface    = Color(0xFFFFFFFF);
+  static const bg = Color(0xFFF8F9FC);
+  static const surface = Color(0xFFFFFFFF);
   static const surfaceAlt = Color(0xFFF2F4F8);
-  static const border     = Color(0xFFEAECF2);
+  static const border = Color(0xFFEAECF2);
 
-  static const blue       = Color(0xFF1A56DB);
-  static const blueLight  = Color(0xFFEEF3FF);
-  static const blueMid    = Color(0xFF3B72F6);
+  static const blue = Color(0xFF1A56DB);
+  static const blueLight = Color(0xFFEEF3FF);
+  static const blueMid = Color(0xFF3B72F6);
 
-  static const green      = Color(0xFF16A34A);
-  static const greenBg    = Color(0xFFECFDF5);
-  static const red        = Color(0xFFDC2626);
-  static const redBg      = Color(0xFFFEF2F2);
-  static const orange     = Color(0xFFEA7317);
-  static const orangeBg   = Color(0xFFFFF7ED);
-  static const teal       = Color(0xFF0891B2);
-  static const tealBg     = Color(0xFFECFEFF);
-  static const purple     = Color(0xFF7C3AED);
-  static const purpleBg   = Color(0xFFF5F3FF);
-  static const amber      = Color(0xFFD97706);
-  static const amberBg    = Color(0xFFFFFBEB);
+  static const green = Color(0xFF16A34A);
+  static const greenBg = Color(0xFFECFDF5);
+  static const red = Color(0xFFDC2626);
+  static const redBg = Color(0xFFFEF2F2);
+  static const orange = Color(0xFFEA7317);
+  static const orangeBg = Color(0xFFFFF7ED);
+  static const teal = Color(0xFF0891B2);
+  static const tealBg = Color(0xFFECFEFF);
+  static const purple = Color(0xFF7C3AED);
+  static const purpleBg = Color(0xFFF5F3FF);
+  static const amber = Color(0xFFD97706);
+  static const amberBg = Color(0xFFFFFBEB);
 
-  static const textPri    = Color(0xFF0F1729);
-  static const textSec    = Color(0xFF64748B);
-  static const textMute   = Color(0xFFADB5C7);
+  static const textPri = Color(0xFF0F1729);
+  static const textSec = Color(0xFF64748B);
+  static const textMute = Color(0xFFADB5C7);
 }
 
 class UserDashboardScreen extends StatefulWidget {
@@ -48,24 +49,23 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     with SingleTickerProviderStateMixin {
   final _supabase = Supabase.instance.client;
 
-  bool   _isLoading    = true;
-  String _userName     = 'User';
-  int    _totalExams   = 0;
-  int    _lastScore    = 0;
-  int    _bestScore    = 0;
-  String _lastLevel    = '';
-  int    _bookmarkCount= 0;
-  String _lastTitle    = '';
-  String _lastDate     = '';
-  int    _worstScore   = 0;
-  String _bestLevel    = '';
-  String _worstLevel   = '';
-  String _bestTitle    = '';
-  String _worstTitle   = '';
-
+  bool _isLoading = true;
+  String _userName = 'User';
+  int _totalExams = 0;
+  int _lastScore = 0;
+  int _bestScore = 0;
+  String _lastLevel = '';
+  int _bookmarkCount = 0;
+  String _lastTitle = '';
+  String _lastDate = '';
+  int _worstScore = 0;
+  String _bestLevel = '';
+  String _worstLevel = '';
+  String _bestTitle = '';
+  String _worstTitle = '';
 
   late AnimationController _fadeCtrl;
-  late Animation<double>    _fadeAnim;
+  late Animation<double> _fadeAnim;
 
   @override
   void initState() {
@@ -74,6 +74,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         vsync: this, duration: const Duration(milliseconds: 500));
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadStats();
+    _loadUnreadCount();
   }
 
   @override
@@ -85,13 +86,22 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   Future<void> _loadStats() async {
     setState(() => _isLoading = true);
     final user = _supabase.auth.currentUser;
-    if (user == null) { setState(() => _isLoading = false); return; }
+    if (user == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
 
     try {
       final futures = await Future.wait<dynamic>([
-        _supabase.from('users').select('display_name').eq('id', user.id).maybeSingle(),
-        _supabase.from('exam_submissions')
-            .select('total_score, l_toeic, r_toeic, cefr_level, created_at, test_id')
+        _supabase
+            .from('users')
+            .select('display_name')
+            .eq('id', user.id)
+            .maybeSingle(),
+        _supabase
+            .from('exam_submissions')
+            .select(
+                'total_score, l_toeic, r_toeic, cefr_level, created_at, test_id')
             .eq('user_id', user.id)
             .not('total_score', 'is', null)
             .order('created_at', ascending: false),
@@ -100,73 +110,101 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
 
       // ดึง title จาก practice_test ตาม test_id ที่เคยสอบ
       final examList = futures[1] as List;
-      final testIds  = examList.map((e) => e['test_id']).toSet().toList();
-      List testRows  = [];
+      final testIds = examList.map((e) => e['test_id']).toSet().toList();
+      List testRows = [];
       if (testIds.isNotEmpty) {
         testRows = await _supabase
             .from('practice_test')
             .select('test_id, title')
             .inFilter('test_id', testIds);
       }
-      final profile   = futures[0] as Map?;
-      final exams     = examList;
+      final profile = futures[0] as Map?;
+      final exams = examList;
       final bookmarks = futures[2] as List;
 
       // สร้าง map test_id -> title (สำหรับ lastTitle เท่านั้น)
       final Map<int, String> testTitles = {};
       for (final r in testRows) {
         final id = (r['test_id'] as num?)?.toInt();
-        final t  = r['title']?.toString() ?? '';
+        final t = r['title']?.toString() ?? '';
         if (id != null && t.isNotEmpty && !testTitles.containsKey(id)) {
           testTitles[id] = t;
         }
       }
 
       int best = 0;
-      String bestLevel  = '';
-      String bestTitle  = '';
+      String bestLevel = '';
+      String bestTitle = '';
       int worst = 999999;
       String worstLevel = '';
       String worstTitle = '';
 
       for (final e in exams) {
-        final s   = (e['total_score'] as num?)?.toInt() ?? 0;
+        final s = (e['total_score'] as num?)?.toInt() ?? 0;
         final tid = (e['test_id'] as num?)?.toInt() ?? 0;
-        final lv  = (e['cefr_level'] as Object? ?? '').toString();
+        final lv = (e['cefr_level'] as Object? ?? '').toString();
         final ttl = (testTitles[tid] ?? '').toString();
-        if (s > best)  { best  = s; bestLevel  = lv; bestTitle  = ttl; }
-        if (s < worst) { worst = s; worstLevel = lv; worstTitle = ttl; }
+        if (s > best) {
+          best = s;
+          bestLevel = lv;
+          bestTitle = ttl;
+        }
+        if (s < worst) {
+          worst = s;
+          worstLevel = lv;
+          worstTitle = ttl;
+        }
       }
       if (worst == 999999) worst = 0;
 
-      final lastTestId = exams.isNotEmpty ? (exams[0]['test_id'] as num?)?.toInt() ?? 0 : 0;
+      final lastTestId =
+          exams.isNotEmpty ? (exams[0]['test_id'] as num?)?.toInt() ?? 0 : 0;
       final String lastTitle = testTitles[lastTestId] ?? '';
-      final String lastDate  = exams.isNotEmpty ? _fmtDate(exams[0]['created_at']?.toString() ?? '') : '';
-      final lastScore = exams.isNotEmpty ? (exams[0]['total_score'] as num?)?.toInt() ?? 0 : 0;
-      final lastLevel = exams.isNotEmpty ? ((exams[0]['cefr_level'] as Object?) ?? '').toString() : '';
+      final String lastDate = exams.isNotEmpty
+          ? _fmtDate(exams[0]['created_at']?.toString() ?? '')
+          : '';
+      final lastScore = exams.isNotEmpty
+          ? (exams[0]['total_score'] as num?)?.toInt() ?? 0
+          : 0;
+      final lastLevel = exams.isNotEmpty
+          ? ((exams[0]['cefr_level'] as Object?) ?? '').toString()
+          : '';
 
       final name = profile?['display_name']?.toString().trim() ?? '';
       setState(() {
-        _userName      = name.isNotEmpty ? name.split(' ').first : 'User';
-        _totalExams    = exams.length;
-        _lastScore     = lastScore;
-        _bestScore     = best;
-        _lastLevel     = lastLevel;
+        _userName = name.isNotEmpty ? name.split(' ').first : 'User';
+        _totalExams = exams.length;
+        _lastScore = lastScore;
+        _bestScore = best;
+        _lastLevel = lastLevel;
         _bookmarkCount = bookmarks.length;
-        _lastTitle     = lastTitle.toString();
-        _lastDate      = lastDate.toString();
-        _worstScore    = worst;
-        _bestLevel     = bestLevel.toString();
-        _worstLevel    = worstLevel.toString();
-        _bestTitle     = bestTitle.toString();
-        _worstTitle    = worstTitle.toString();
-        _isLoading     = false;
+        _lastTitle = lastTitle.toString();
+        _lastDate = lastDate.toString();
+        _worstScore = worst;
+        _bestLevel = bestLevel.toString();
+        _worstLevel = worstLevel.toString();
+        _bestTitle = bestTitle.toString();
+        _worstTitle = worstTitle.toString();
+        _isLoading = false;
       });
       _fadeCtrl.forward(from: 0);
     } catch (e) {
       debugPrint('_loadStats error: $e');
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadUnreadCount() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    try {
+      final res = await _supabase
+          .from('user_notifications')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_read', false);
+      unreadCountNotifier.value = (res as List).length;
+    } catch (_) {}
   }
 
   @override
@@ -192,9 +230,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 userName: _userName,
                 bookmarkCount: _bookmarkCount,
                 statusBarHeight: MediaQuery.of(context).padding.top,
-                onBookmarkTap: () =>
-                    Navigator.pushNamed(context, '/bookmarks')
-                        .then((_) => _loadStats()),
+                onBookmarkTap: () => Navigator.pushNamed(context, '/bookmarks')
+                    .then((_) => _loadStats()),
                 onNotificationsTap: () =>
                     Navigator.pushNamed(context, '/notifications'),
               ),
@@ -233,9 +270,11 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                           children: [
                             _label('แหล่งเรียนรู้', sub: 'แนะนำโดยผู้ดูแล'),
                             GestureDetector(
-                              onTap: () => Navigator.push(context,
-                                MaterialPageRoute(builder: (_) =>
-                                  const LearningResourcesScreen())),
+                              onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) =>
+                                          const LearningResourcesScreen())),
                               child: const Row(children: [
                                 Text('ดูทั้งหมด',
                                     style: TextStyle(
@@ -251,7 +290,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                         ),
                         const SizedBox(height: 14),
                         _DashboardResourcesRow(),
-
                       ],
                     ),
                   ),
@@ -265,27 +303,29 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
 
   // ── Hero Score Card ──────────────────────────────────────────────────────
   Widget _heroScoreCard() {
-    final double lastPct  = _lastScore  / 990.0;
-    final double bestPct  = _bestScore  / 990.0;
+    final double lastPct = _lastScore / 990.0;
+    final double bestPct = _bestScore / 990.0;
     final double worstPct = _worstScore / 990.0;
 
     return Container(
       decoration: BoxDecoration(
         color: _P.blue,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(
-            color: _P.blue.withOpacity(0.28),
-            blurRadius: 24, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+              color: _P.blue.withOpacity(0.28),
+              blurRadius: 24,
+              offset: const Offset(0, 8))
+        ],
       ),
       child: Column(children: [
-
         // ══ ส่วนบน: สูงสุด / ต่ำสุด ══════════════════════════════════════
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
           child: Row(children: [
-
             // สูงสุด
-            Expanded(child: _statMiniPanel(
+            Expanded(
+                child: _statMiniPanel(
               icon: Icons.emoji_events_rounded,
               iconColor: const Color(0xFFFFD700),
               label: 'สูงสุด',
@@ -298,13 +338,15 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
 
             // Vertical divider
             Container(
-              width: 1, height: 100,
+              width: 1,
+              height: 100,
               margin: const EdgeInsets.symmetric(horizontal: 16),
               color: Colors.white.withOpacity(0.12),
             ),
 
             // ต่ำสุด
-            Expanded(child: _statMiniPanel(
+            Expanded(
+                child: _statMiniPanel(
               icon: Icons.trending_down_rounded,
               iconColor: const Color(0xFFFCA5A5),
               label: 'ต่ำสุด',
@@ -328,83 +370,101 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
           child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-
             // ซ้าย: ข้อมูลล่าสุด
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('ครั้งล่าสุด',
-                  style: TextStyle(color: Colors.white54, fontSize: 11,
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(height: 4),
-              Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(_lastScore.toString(),
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        height: 1.0, letterSpacing: -1)),
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 4, left: 4),
-                  child: Text('/ 990',
-                      style: TextStyle(color: Colors.white38, fontSize: 12)),
-                ),
-              ]),
-              const SizedBox(height: 6),
-              Row(children: [
-                if (_lastLevel.isNotEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(7),
-                    ),
-                    child: Text(_lastLevel,
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  const Text('ครั้งล่าสุด',
+                      style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 4),
+                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(_lastScore.toString(),
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 10,
-                            fontWeight: FontWeight.w700)),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                if (_lastDate.isNotEmpty)
-                  Text(_lastDate,
-                      style: const TextStyle(
-                          color: Colors.white38, fontSize: 10)),
-              ]),
-              if (_lastTitle.isNotEmpty) ...[
-                const SizedBox(height: 3),
-                Text(_lastTitle,
-                    style: const TextStyle(
-                        color: Colors.white38, fontSize: 10),
-                    overflow: TextOverflow.ellipsis, maxLines: 1),
-              ],
-            ])),
+                            color: Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            height: 1.0,
+                            letterSpacing: -1)),
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 4, left: 4),
+                      child: Text('/ 990',
+                          style:
+                              TextStyle(color: Colors.white38, fontSize: 12)),
+                    ),
+                  ]),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    if (_lastLevel.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(7),
+                        ),
+                        child: Text(_lastLevel,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (_lastDate.isNotEmpty)
+                      Text(_lastDate,
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 10)),
+                  ]),
+                  if (_lastTitle.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(_lastTitle,
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1),
+                  ],
+                ])),
 
             // ขวา: วงกลม % + จำนวนครั้ง
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 SizedBox(
-                  width: 60, height: 60,
+                  width: 60,
+                  height: 60,
                   child: Stack(alignment: Alignment.center, children: [
-                    SizedBox(width: 60, height: 60,
+                    SizedBox(
+                        width: 60,
+                        height: 60,
                         child: CircularProgressIndicator(
-                            value: 1, strokeWidth: 6,
+                            value: 1,
+                            strokeWidth: 6,
                             color: Colors.white.withOpacity(0.12))),
-                    SizedBox(width: 60, height: 60,
+                    SizedBox(
+                        width: 60,
+                        height: 60,
                         child: CircularProgressIndicator(
-                            value: lastPct, strokeWidth: 6,
+                            value: lastPct,
+                            strokeWidth: 6,
                             backgroundColor: Colors.transparent,
-                            valueColor: const AlwaysStoppedAnimation(Colors.white),
+                            valueColor:
+                                const AlwaysStoppedAnimation(Colors.white),
                             strokeCap: StrokeCap.round)),
                     Text('${(lastPct * 100).round()}%',
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 12,
+                            color: Colors.white,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800)),
                   ]),
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -415,7 +475,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                     const SizedBox(width: 4),
                     Text('$_totalExams ครั้ง',
                         style: const TextStyle(
-                            color: Colors.white70, fontSize: 10,
+                            color: Colors.white70,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600)),
                   ]),
                 ),
@@ -423,7 +484,6 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             ),
           ]),
         ),
-
       ]),
     );
   }
@@ -441,17 +501,25 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     return Stack(children: [
       // pie chart มุมบนขวา
       Positioned(
-        top: 0, right: 0,
+        top: 0,
+        right: 0,
         child: SizedBox(
-          width: 48, height: 48,
+          width: 48,
+          height: 48,
           child: Stack(alignment: Alignment.center, children: [
-            SizedBox(width: 48, height: 48,
+            SizedBox(
+                width: 48,
+                height: 48,
                 child: CircularProgressIndicator(
-                    value: 1, strokeWidth: 5,
+                    value: 1,
+                    strokeWidth: 5,
                     color: Colors.white.withOpacity(0.12))),
-            SizedBox(width: 48, height: 48,
+            SizedBox(
+                width: 48,
+                height: 48,
                 child: CircularProgressIndicator(
-                    value: pct, strokeWidth: 5,
+                    value: pct,
+                    strokeWidth: 5,
                     backgroundColor: Colors.transparent,
                     valueColor: AlwaysStoppedAnimation<Color>(barColor),
                     strokeCap: StrokeCap.round)),
@@ -475,8 +543,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
               Flexible(
                 child: Text(label,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white54, fontSize: 11)),
+                    style:
+                        const TextStyle(color: Colors.white54, fontSize: 11)),
               ),
             ]),
             const SizedBox(height: 4),
@@ -487,9 +555,11 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                   alignment: Alignment.centerLeft,
                   child: Text(score.toString(),
                       style: const TextStyle(
-                          color: Colors.white, fontSize: 32,
+                          color: Colors.white,
+                          fontSize: 32,
                           fontWeight: FontWeight.w800,
-                          height: 1.0, letterSpacing: -1)),
+                          height: 1.0,
+                          letterSpacing: -1)),
                 ),
               ),
               const Padding(
@@ -508,7 +578,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 ),
                 child: Text(cefrLevel,
                     style: TextStyle(
-                        color: barColor == Colors.white ? Colors.white : barColor,
+                        color:
+                            barColor == Colors.white ? Colors.white : barColor,
                         fontSize: 10,
                         fontWeight: FontWeight.w700)),
               ),
@@ -516,8 +587,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
             if (title.isNotEmpty) ...[
               const SizedBox(height: 4),
               Text(title,
-                  style: const TextStyle(
-                      color: Colors.white38, fontSize: 10)),
+                  style: const TextStyle(color: Colors.white38, fontSize: 10)),
             ],
           ],
         ),
@@ -530,23 +600,37 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     if (raw.isEmpty) return '';
     try {
       final dt = DateTime.parse(raw).toLocal();
-      const months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+      const months = [
+        '',
+        'ม.ค.',
+        'ก.พ.',
+        'มี.ค.',
+        'เม.ย.',
+        'พ.ค.',
+        'มิ.ย.',
+        'ก.ค.',
+        'ส.ค.',
+        'ก.ย.',
+        'ต.ค.',
+        'พ.ย.',
+        'ธ.ค.'
+      ];
       final d = dt.day.toString();
       final m = months[dt.month];
       final y = (dt.year + 543).toString();
       final h = dt.hour.toString().padLeft(2, '0');
       final min = dt.minute.toString().padLeft(2, '0');
       return '$d $m $y  $h:$min';
-    } catch (_) { return ''; }
+    } catch (_) {
+      return '';
+    }
   }
-
-
 
   // ── No Exam Banner ───────────────────────────────────────────────────────
   Widget _noExamBanner(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const ExamListScreen())),
+      onTap: () => Navigator.push(
+          context, MaterialPageRoute(builder: (_) => const ExamListScreen())),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -556,7 +640,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         ),
         child: Row(children: [
           Container(
-            width: 48, height: 48,
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
               color: _P.blue,
               borderRadius: BorderRadius.circular(14),
@@ -565,18 +650,20 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
                 color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
-          const Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('เริ่มทำข้อสอบครั้งแรก!',
-                style: TextStyle(
-                    color: _P.textPri, fontSize: 14,
-                    fontWeight: FontWeight.w700)),
-            SizedBox(height: 2),
-            Text('จำลองสอบ TOEIC 200 ข้อ เพื่อดูสถิติ',
-                style: TextStyle(color: _P.textSec, fontSize: 12)),
-          ])),
-          const Icon(Icons.arrow_forward_ios_rounded,
-              size: 14, color: _P.blue),
+          const Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text('เริ่มทำข้อสอบครั้งแรก!',
+                    style: TextStyle(
+                        color: _P.textPri,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700)),
+                SizedBox(height: 2),
+                Text('จำลองสอบ TOEIC 200 ข้อ เพื่อดูสถิติ',
+                    style: TextStyle(color: _P.textSec, fontSize: 12)),
+              ])),
+          const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _P.blue),
         ]),
       ),
     );
@@ -585,52 +672,72 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   // ── Quick Actions ────────────────────────────────────────────────────────
   Widget _quickActions(BuildContext context) {
     final actions = [
-      _Action('Vocabulary', Icons.collections_bookmark_rounded,
-          _P.teal, _P.tealBg,
-          () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => const VocabListScreen(showBackButton: true)))),
-      _Action('Part Practice', Icons.style_rounded,
-          _P.purple, _P.purpleBg,
-          () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => const PartPracticeSelectorScreen()))),
-      _Action('Full Mock Test', Icons.assignment_rounded,
-          _P.blue, _P.blueLight,
-          () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => const ExamListScreen()))),
-      _Action('History', Icons.history_rounded,
-          _P.amber, _P.amberBg,
-          () => Navigator.push(context, MaterialPageRoute(
-              builder: (_) => const StudyHistoryScreen()))),
+      _Action(
+          'Vocabulary',
+          Icons.collections_bookmark_rounded,
+          _P.teal,
+          _P.tealBg,
+          () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      const VocabListScreen(showBackButton: true)))),
+      _Action(
+          'Part Practice',
+          Icons.style_rounded,
+          _P.purple,
+          _P.purpleBg,
+          () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const PartPracticeSelectorScreen()))),
+      _Action(
+          'Full Mock Test',
+          Icons.assignment_rounded,
+          _P.blue,
+          _P.blueLight,
+          () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const ExamListScreen()))),
+      _Action(
+          'History',
+          Icons.history_rounded,
+          _P.amber,
+          _P.amberBg,
+          () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const StudyHistoryScreen()))),
     ];
 
     return Row(
-      children: actions.map((a) => Expanded(
-        child: GestureDetector(
-          onTap: a.onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Column(children: [
-              Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(
-                  color: a.bg,
-                  borderRadius: BorderRadius.circular(16),
+      children: actions
+          .map((a) => Expanded(
+                child: GestureDetector(
+                  onTap: a.onTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: a.bg,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(a.icon, color: a.color, size: 24),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(a.label,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                              color: _P.textPri,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                    ]),
+                  ),
                 ),
-                child: Icon(a.icon, color: a.color, size: 24),
-              ),
-              const SizedBox(height: 7),
-              Text(a.label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                      color: _P.textPri,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis),
-            ]),
-          ),
-        ),
-      )).toList(),
+              ))
+          .toList(),
     );
   }
 
@@ -642,13 +749,13 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
       children: [
         Text(title,
             style: const TextStyle(
-                color: _P.textPri, fontSize: 15,
-                fontWeight: FontWeight.w700, letterSpacing: -0.2)),
+                color: _P.textPri,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2)),
         if (sub != null) ...[
           const SizedBox(width: 8),
-          Text(sub,
-              style: const TextStyle(
-                  color: _P.textMute, fontSize: 11)),
+          Text(sub, style: const TextStyle(color: _P.textMute, fontSize: 11)),
         ],
       ],
     );
@@ -658,8 +765,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
 // ── Sticky Header ─────────────────────────────────────────────────────────────
 class _StickyHeader extends SliverPersistentHeaderDelegate {
   final String userName;
-  final int    bookmarkCount;
-  final double statusBarHeight;   // ← รับ status bar จากภายนอก
+  final int bookmarkCount;
+  final double statusBarHeight; // ← รับ status bar จากภายนอก
   final VoidCallback onBookmarkTap;
   final VoidCallback onNotificationsTap;
 
@@ -675,21 +782,23 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
   static const _contentMax = 64.0;
 
   // minExtent ต้องเท่ากับ maxExtent เพื่อป้องกัน SliverGeometry error
-  @override double get maxExtent => _contentMax + statusBarHeight;
-  @override double get minExtent => _contentMax + statusBarHeight;
+  @override
+  double get maxExtent => _contentMax + statusBarHeight;
+  @override
+  double get minExtent => _contentMax + statusBarHeight;
 
   @override
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
     if (oldDelegate is! _StickyHeader) return true;
-    return oldDelegate.userName       != userName       ||
-           oldDelegate.bookmarkCount  != bookmarkCount  ||
-           oldDelegate.statusBarHeight != statusBarHeight;
+    return oldDelegate.userName != userName ||
+        oldDelegate.bookmarkCount != bookmarkCount ||
+        oldDelegate.statusBarHeight != statusBarHeight;
   }
 
   @override
   Widget build(BuildContext ctx, double shrinkOffset, bool overlaps) {
-    final range   = maxExtent - minExtent;
-    final shrink  = shrinkOffset.clamp(0.0, range);
+    final range = maxExtent - minExtent;
+    final shrink = shrinkOffset.clamp(0.0, range);
     final compact = range > 0 && shrink / range > 0.5;
 
     return Container(
@@ -734,8 +843,7 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
                                 letterSpacing: -0.5)),
                         const SizedBox(height: 2),
                         const Text('TOEIC VocabBoost',
-                            style: TextStyle(
-                                color: _P.textMute, fontSize: 12)),
+                            style: TextStyle(color: _P.textMute, fontSize: 12)),
                       ],
                     ),
             ),
@@ -746,7 +854,8 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
               onTap: onBookmarkTap,
               child: Stack(alignment: Alignment.topRight, children: [
                 Container(
-                  width: 40, height: 40,
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
                     color: _P.surface,
                     borderRadius: BorderRadius.circular(12),
@@ -762,13 +871,15 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
                 ),
                 if (bookmarkCount > 0)
                   Container(
-                    width: 16, height: 16,
+                    width: 16,
+                    height: 16,
                     decoration: const BoxDecoration(
                         color: _P.red, shape: BoxShape.circle),
                     child: Center(
                       child: Text('$bookmarkCount',
                           style: const TextStyle(
-                              color: Colors.white, fontSize: 9,
+                              color: Colors.white,
+                              fontSize: 9,
                               fontWeight: FontWeight.w700)),
                     ),
                   ),
@@ -779,18 +890,53 @@ class _StickyHeader extends SliverPersistentHeaderDelegate {
       ),
     );
   }
+
   Widget _iconBtn(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 40, height: 40,
-        decoration: BoxDecoration(
-          color: _P.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _P.border),
-        ),
-        child: Icon(icon, color: _P.textSec, size: 20),
-      ),
+    return ValueListenableBuilder<int>(
+      valueListenable: unreadCountNotifier,
+      builder: (context, count, _) {
+        return GestureDetector(
+          onTap: onTap,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _P.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _P.border),
+                ),
+                child: Icon(icon, color: _P.textSec, size: 20),
+              ),
+              if (count > 0)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
+                      color: _P.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -812,47 +958,97 @@ class _DashboardResourcesRow extends StatelessWidget {
   final _supabase = Supabase.instance.client;
 
   static const _typeStyle = {
-    'youtube': (Icons.play_circle_rounded,   Color(0xFFE53935), Color(0xFFFFEBEE), Color(0xFFFFCDD2)),
-    'article': (Icons.article_rounded,       Color(0xFF1565C0), Color(0xFFE3F2FD), Color(0xFFBBDEFB)),
-    'website': (Icons.language_rounded,      Color(0xFF00838F), Color(0xFFE0F7FA), Color(0xFFB2EBF2)),
-    'other':   (Icons.link_rounded,          Color(0xFF6A1B9A), Color(0xFFF3E5F5), Color(0xFFE1BEE7)),
-    'sheet':   (Icons.picture_as_pdf_rounded, Color(0xFFE53935), Color(0xFFFFEBEE), Color(0xFFFFCDD2)),
+    'youtube': (
+      Icons.play_circle_rounded,
+      Color(0xFFE53935),
+      Color(0xFFFFEBEE),
+      Color(0xFFFFCDD2)
+    ),
+    'article': (
+      Icons.article_rounded,
+      Color(0xFF1565C0),
+      Color(0xFFE3F2FD),
+      Color(0xFFBBDEFB)
+    ),
+    'website': (
+      Icons.language_rounded,
+      Color(0xFF00838F),
+      Color(0xFFE0F7FA),
+      Color(0xFFB2EBF2)
+    ),
+    'other': (
+      Icons.link_rounded,
+      Color(0xFF6A1B9A),
+      Color(0xFFF3E5F5),
+      Color(0xFFE1BEE7)
+    ),
+    'sheet': (
+      Icons.picture_as_pdf_rounded,
+      Color(0xFFE53935),
+      Color(0xFFFFEBEE),
+      Color(0xFFFFCDD2)
+    ),
   };
 
   static const _typeLabel = {
-    'youtube': 'YouTube', 'article': 'บทความ',
-    'website': 'เว็บไซต์', 'other': 'อื่นๆ', 'sheet': 'PDF',
+    'youtube': 'YouTube',
+    'article': 'บทความ',
+    'website': 'เว็บไซต์',
+    'other': 'อื่นๆ',
+    'sheet': 'PDF',
   };
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase.from('learning_resources').stream(primaryKey: ['id']).eq('is_pinned', true).order('created_at', ascending: false),
+      stream: _supabase
+          .from('learning_resources')
+          .stream(primaryKey: ['id'])
+          .eq('is_pinned', true)
+          .order('created_at', ascending: false),
       builder: (context, resourcesSnap) {
         return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _supabase.from('sheets').stream(primaryKey: ['id']).eq('is_pinned', true).order('created_at', ascending: false),
+          stream: _supabase
+              .from('sheets')
+              .stream(primaryKey: ['id'])
+              .eq('is_pinned', true)
+              .order('created_at', ascending: false),
           builder: (context, sheetsSnap) {
             if (!resourcesSnap.hasData || !sheetsSnap.hasData) {
-              return SizedBox(height: 160, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: 3, itemBuilder: (_, __) => _SkeletonCard()));
+              return SizedBox(
+                  height: 160,
+                  child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: 3,
+                      itemBuilder: (_, __) => _SkeletonCard()));
             }
 
             // merge: resources + sheets, sort by createdAt desc
             final merged = [
               ...resourcesSnap.data!.map((m) => {...m, '_source': 'resource'}),
-              ...sheetsSnap.data!.map((m) => {...m, '_source': 'sheet', 'type': 'sheet'}),
+              ...sheetsSnap.data!
+                  .map((m) => {...m, '_source': 'sheet', 'type': 'sheet'}),
             ]..sort((a, b) {
-              final da = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(0);
-              final db = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(0);
-              return db.compareTo(da);
-            });
+                final da =
+                    DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(0);
+                final db =
+                    DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(0);
+                return db.compareTo(da);
+              });
 
             if (merged.isEmpty) {
               return Container(
                 height: 80,
-                decoration: BoxDecoration(color: _P.surfaceAlt, borderRadius: BorderRadius.circular(14), border: Border.all(color: _P.border)),
-                child: const Center(child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.inbox_rounded, color: _P.textMute, size: 18), SizedBox(width: 8),
-                  Text('ยังไม่มีแหล่งเรียนรู้', style: TextStyle(color: _P.textMute, fontSize: 13)),
+                decoration: BoxDecoration(
+                    color: _P.surfaceAlt,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _P.border)),
+                child: const Center(
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.inbox_rounded, color: _P.textMute, size: 18),
+                  SizedBox(width: 8),
+                  Text('ยังไม่มีแหล่งเรียนรู้',
+                      style: TextStyle(color: _P.textMute, fontSize: 13)),
                 ])),
               );
             }
@@ -860,7 +1056,8 @@ class _DashboardResourcesRow extends StatelessWidget {
             return SizedBox(
               height: 172,
               child: ListView.builder(
-                scrollDirection: Axis.horizontal, clipBehavior: Clip.none,
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
                 padding: const EdgeInsets.only(right: 4),
                 itemCount: merged.length + 1,
                 itemBuilder: (context, index) {
@@ -868,88 +1065,191 @@ class _DashboardResourcesRow extends StatelessWidget {
                     return Padding(
                       padding: const EdgeInsets.only(left: 10),
                       child: GestureDetector(
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LearningResourcesScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) =>
+                                    const LearningResourcesScreen())),
                         child: Container(
                           width: 80,
-                          decoration: BoxDecoration(color: _P.blueLight, borderRadius: BorderRadius.circular(16), border: Border.all(color: _P.blue.withOpacity(0.18))),
-                          child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            Icon(Icons.grid_view_rounded, color: _P.blue, size: 24), SizedBox(height: 8),
-                            Text('ดูทั้งหมด', textAlign: TextAlign.center, style: TextStyle(color: _P.blue, fontSize: 11, fontWeight: FontWeight.w700)),
-                          ]),
+                          decoration: BoxDecoration(
+                              color: _P.blueLight,
+                              borderRadius: BorderRadius.circular(16),
+                              border:
+                                  Border.all(color: _P.blue.withOpacity(0.18))),
+                          child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.grid_view_rounded,
+                                    color: _P.blue, size: 24),
+                                SizedBox(height: 8),
+                                Text('ดูทั้งหมด',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        color: _P.blue,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700)),
+                              ]),
                         ),
                       ),
                     );
                   }
 
-                  final item   = merged[index];
+                  final item = merged[index];
                   final source = item['_source'] as String;
-                  final type   = (item['type'] as String?) ?? 'other';
-                  final style  = _typeStyle[type] ?? _typeStyle['other']!;
+                  final type = (item['type'] as String?) ?? 'other';
+                  final style = _typeStyle[type] ?? _typeStyle['other']!;
                   final (icon, color, bg, badgeBg) = style;
-                  final label  = _typeLabel[type] ?? 'อื่นๆ';
-                  final title  = (item['title'] as String?) ?? '';
-                  final desc   = source == 'sheet' ? (item['category'] as String? ?? '') : (item['description'] as String? ?? '');
+                  final label = _typeLabel[type] ?? 'อื่นๆ';
+                  final title = (item['title'] as String?) ?? '';
+                  final desc = source == 'sheet'
+                      ? (item['category'] as String? ?? '')
+                      : (item['description'] as String? ?? '');
 
                   return Padding(
                     padding: EdgeInsets.only(left: index == 0 ? 0 : 10),
                     child: GestureDetector(
                       onTap: () {
                         if (source == 'resource') {
-                          Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => ResourceDetailScreen(resource: LearningResource.fromMap(item))));
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) => ResourceDetailScreen(
+                                      resource:
+                                          LearningResource.fromMap(item))));
                         } else {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => const LearningResourcesScreen()));
+                          Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (_) =>
+                                      const LearningResourcesScreen()));
                         }
                       },
                       child: Container(
                         width: 156,
                         decoration: BoxDecoration(
-                          color: _P.surface, borderRadius: BorderRadius.circular(16),
+                          color: _P.surface,
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: _P.border),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3))],
+                          boxShadow: [
+                            BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3))
+                          ],
                         ),
-                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                          Container(
-                            height: 72,
-                            decoration: BoxDecoration(color: bg, borderRadius: const BorderRadius.vertical(top: Radius.circular(16))),
-                            child: Stack(children: [
-                              Positioned(right: -12, bottom: -12, child: Container(width: 60, height: 60,
-                                  decoration: BoxDecoration(shape: BoxShape.circle, color: color.withOpacity(0.1)))),
-                              Padding(padding: const EdgeInsets.all(12),
-                                child: Container(width: 40, height: 40,
-                                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(11),
-                                      boxShadow: [BoxShadow(color: color.withOpacity(0.18), blurRadius: 6, offset: const Offset(0, 2))]),
-                                  child: Icon(icon, color: color, size: 20))),
-                              Positioned(right: 8, top: 8,
-                                child: Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                                  decoration: BoxDecoration(color: badgeBg, borderRadius: BorderRadius.circular(20)),
-                                  child: Text(label, style: TextStyle(color: color, fontSize: 9, fontWeight: FontWeight.w700)))),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                height: 72,
+                                decoration: BoxDecoration(
+                                    color: bg,
+                                    borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(16))),
+                                child: Stack(children: [
+                                  Positioned(
+                                      right: -12,
+                                      bottom: -12,
+                                      child: Container(
+                                          width: 60,
+                                          height: 60,
+                                          decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: color.withOpacity(0.1)))),
+                                  Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius:
+                                                  BorderRadius.circular(11),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                    color:
+                                                        color.withOpacity(0.18),
+                                                    blurRadius: 6,
+                                                    offset: const Offset(0, 2))
+                                              ]),
+                                          child: Icon(icon,
+                                              color: color, size: 20))),
+                                  Positioned(
+                                      right: 8,
+                                      top: 8,
+                                      child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 7, vertical: 3),
+                                          decoration: BoxDecoration(
+                                              color: badgeBg,
+                                              borderRadius:
+                                                  BorderRadius.circular(20)),
+                                          child: Text(label,
+                                              style: TextStyle(
+                                                  color: color,
+                                                  fontSize: 9,
+                                                  fontWeight:
+                                                      FontWeight.w700)))),
+                                ]),
+                              ),
+                              Expanded(
+                                child: Padding(
+                                  padding:
+                                      const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                                  child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(title,
+                                            style: const TextStyle(
+                                                color: _P.textPri,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w700,
+                                                height: 1.3),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis),
+                                        if (desc.isNotEmpty) ...[
+                                          const SizedBox(height: 3),
+                                          Expanded(
+                                              child: Text(desc,
+                                                  style: const TextStyle(
+                                                      color: _P.textSec,
+                                                      fontSize: 10,
+                                                      height: 1.4),
+                                                  maxLines: 2,
+                                                  overflow:
+                                                      TextOverflow.ellipsis)),
+                                        ],
+                                      ]),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 7),
+                                decoration: BoxDecoration(
+                                    color: _P.surfaceAlt,
+                                    borderRadius: const BorderRadius.vertical(
+                                        bottom: Radius.circular(16))),
+                                child: Row(children: [
+                                  Expanded(
+                                      child: Text(
+                                          source == 'sheet'
+                                              ? 'เปิดอ่าน PDF'
+                                              : 'ดูรายละเอียด',
+                                          style: TextStyle(
+                                              color: color,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700))),
+                                  Icon(
+                                      source == 'sheet'
+                                          ? Icons.open_in_new_rounded
+                                          : Icons.arrow_forward_ios_rounded,
+                                      size: 9,
+                                      color: color),
+                                ]),
+                              ),
                             ]),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                Text(title, style: const TextStyle(color: _P.textPri, fontSize: 12, fontWeight: FontWeight.w700, height: 1.3),
-                                    maxLines: 2, overflow: TextOverflow.ellipsis),
-                                if (desc.isNotEmpty) ...[
-                                  const SizedBox(height: 3),
-                                  Expanded(child: Text(desc, style: const TextStyle(color: _P.textSec, fontSize: 10, height: 1.4),
-                                      maxLines: 2, overflow: TextOverflow.ellipsis)),
-                                ],
-                              ]),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                            decoration: BoxDecoration(color: _P.surfaceAlt, borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16))),
-                            child: Row(children: [
-                              Expanded(child: Text(source == 'sheet' ? 'เปิดอ่าน PDF' : 'ดูรายละเอียด',
-                                  style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700))),
-                              Icon(source == 'sheet' ? Icons.open_in_new_rounded : Icons.arrow_forward_ios_rounded, size: 9, color: color),
-                            ]),
-                          ),
-                        ]),
                       ),
                     ),
                   );
@@ -998,7 +1298,8 @@ class _SkeletonCardState extends State<_SkeletonCard>
         return Padding(
           padding: const EdgeInsets.only(left: 10),
           child: Container(
-            width: 156, height: 172,
+            width: 156,
+            height: 172,
             decoration: BoxDecoration(
               color: _P.surface,
               borderRadius: BorderRadius.circular(16),
@@ -1009,15 +1310,16 @@ class _SkeletonCardState extends State<_SkeletonCard>
                 height: 72,
                 decoration: BoxDecoration(
                   color: Colors.black.withOpacity(opacity),
-                  borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(16)),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Column(children: [
                   Container(
-                    height: 10, width: double.infinity,
+                    height: 10,
+                    width: double.infinity,
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(opacity),
                       borderRadius: BorderRadius.circular(5),
@@ -1025,7 +1327,8 @@ class _SkeletonCardState extends State<_SkeletonCard>
                   ),
                   const SizedBox(height: 6),
                   Container(
-                    height: 10, width: 90,
+                    height: 10,
+                    width: 90,
                     decoration: BoxDecoration(
                       color: Colors.black.withOpacity(opacity * 0.6),
                       borderRadius: BorderRadius.circular(5),
