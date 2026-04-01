@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-// Global notifier — ไฟล์เดียวกันก็ได้ หรือจะแยกไปไว้ lib/notifiers/unread_notifier.dart แล้ว import ก็ได้
 final unreadCountNotifier = ValueNotifier<int>(0);
 
 class NotificationCenterScreen extends StatefulWidget {
@@ -40,9 +39,8 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
       if (!mounted) return;
 
       final list = List<Map<String, dynamic>>.from(response);
-
-      // อัปเดต badge ทุกครั้งที่โหลดข้อมูลใหม่
-      unreadCountNotifier.value = list.where((n) => n['is_read'] != true).length;
+      unreadCountNotifier.value =
+          list.where((n) => n['is_read'] != true).length;
 
       setState(() {
         _notifications = list;
@@ -97,6 +95,28 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
     }
   }
 
+  void _showDetail(Map<String, dynamic> item) {
+    final isRead = item['is_read'] == true;
+    final id = item['id'] as int;
+
+    // mark as read ทันทีที่เปิด bottom sheet
+    if (!isRead) _markAsRead(id);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NotificationDetailSheet(
+        item: item,
+        createdAt: DateTime.tryParse('${item['created_at']}'),
+        onDelete: () async {
+          Navigator.pop(context);
+          await _deleteNotification(id);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -139,11 +159,22 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                   : Icons.notifications_active,
                               color: isRead ? Colors.grey : Colors.blue,
                             ),
-                            title: Text(item['title'] ?? '-'),
+                            title: Text(
+                              item['title'] ?? '-',
+                              style: TextStyle(
+                                fontWeight: isRead
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
+                              ),
+                            ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(item['body'] ?? ''),
+                                Text(
+                                  item['body'] ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                                 if (createdAt != null)
                                   Text(
                                     DateFormat('dd/MM/yyyy HH:mm')
@@ -152,7 +183,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                                   ),
                               ],
                             ),
-                            onTap: () => _markAsRead(item['id'] as int),
+                            onTap: () => _showDetail(item),
                             trailing: IconButton(
                               icon: const Icon(
                                 Icons.delete_outline,
@@ -166,6 +197,157 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
                       },
                     ),
             ),
+    );
+  }
+}
+
+// ── Bottom Sheet Detail ───────────────────────────────────────────────────────
+class _NotificationDetailSheet extends StatelessWidget {
+  final Map<String, dynamic> item;
+  final DateTime? createdAt;
+  final VoidCallback onDelete;
+
+  const _NotificationDetailSheet({
+    required this.item,
+    required this.createdAt,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isRead = item['is_read'] == true;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.85,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            // ── Handle bar ──
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                children: [
+                  // ── สถานะ badge ──
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isRead
+                              ? Colors.grey.shade100
+                              : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isRead
+                                  ? Icons.mark_email_read
+                                  : Icons.notifications_active,
+                              size: 13,
+                              color: isRead ? Colors.grey : Colors.blue,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              isRead ? 'อ่านแล้ว' : 'ยังไม่ได้อ่าน',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: isRead ? Colors.grey : Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // ── หัวข้อ ──
+                  Text(
+                    item['title'] ?? '-',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF0F1729),
+                      height: 1.3,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // ── วันเวลา ──
+                  if (createdAt != null)
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time_rounded,
+                            size: 13, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat('dd/MM/yyyy HH:mm')
+                              .format(createdAt!.toLocal()),
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 16),
+
+                  // ── ข้อความเต็ม ──
+                  Text(
+                    item['body'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFF334155),
+                      height: 1.7,
+                    ),
+                  ),
+
+                  const SizedBox(height: 32),
+
+                  // ── ปุ่มลบ ──
+                  OutlinedButton.icon(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_outline,
+                        color: Colors.red, size: 18),
+                    label: const Text('ลบการแจ้งเตือนนี้',
+                        style: TextStyle(color: Colors.red)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.red),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
