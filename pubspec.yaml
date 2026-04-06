@@ -1,4 +1,4 @@
-name: vbapp_new
+name: VocabBoost
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -49,10 +49,17 @@ dependencies:
   shared_preferences: ^2.3.0
   
   
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
 
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/vocabboost_logo_v3.png" # รูป icon ของคุณ
+  min_sdk_android: 21
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
