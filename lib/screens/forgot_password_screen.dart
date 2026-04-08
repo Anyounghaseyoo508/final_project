@@ -11,7 +11,6 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _supabase = Supabase.instance.client;
   final _emailController = TextEditingController();
-  final _emailRegex = RegExp(r'^[\w\.\-+]+@([\w\-]+\.)+[\w\-]{2,}$');
   bool _isSubmitting = false;
 
   @override
@@ -20,7 +19,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  Future<void> _resetPassword() async {
+  Future<void> _sendOtp() async {
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
@@ -30,44 +29,25 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       return;
     }
 
-    if (!_emailRegex.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('รูปแบบอีเมลไม่ถูกต้อง')),
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
 
     try {
-      final redirectTo =
-          Uri.base.hasAuthority ? '${Uri.base.origin}/reset-password' : null;
-      await _supabase.auth.resetPasswordForEmail(
-        email,
-        redirectTo: redirectTo,
-      );
+      await _supabase.auth.resetPasswordForEmail(email);
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ส่งลิงก์รีเซ็ตรหัสผ่านแล้ว กรุณาตรวจสอบอีเมล'),
-        ),
-      );
-      Navigator.pop(context);
+      Navigator.pushNamed(context, '/otp', arguments: email);
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ส่งลิงก์ไม่สำเร็จ: ${e.message}')),
+        SnackBar(content: Text('เกิดข้อผิดพลาด: ${e.message}')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('ส่งลิงก์ไม่สำเร็จ: $e')),
+        SnackBar(content: Text('เกิดข้อผิดพลาด: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -83,12 +63,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             children: [
               const SizedBox(height: 16),
               const Text(
-                'ลืมรหัสผ่าน',
+                'รีเซ็ตรหัสผ่าน',
                 style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               const Text(
-                'กรอกอีเมลเพื่อรับลิงก์รีเซ็ตรหัสผ่าน',
+                'กรอกอีเมลของคุณ เราจะส่งรหัส OTP 6 หลักไปให้',
                 style: TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 32),
@@ -96,14 +76,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
+                  labelText: 'อีเมล',
                   border: OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 16),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _isSubmitting ? null : _resetPassword,
+                onPressed: _isSubmitting ? null : _sendOtp,
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size.fromHeight(52),
                 ),
@@ -113,7 +92,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         width: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('ส่งลิงก์รีเซ็ตรหัสผ่าน'),
+                    : const Text('ส่งรหัส OTP'),
               ),
             ],
           ),

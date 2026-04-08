@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import './splash_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/otp_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/users/Exam Practice/screens/practice_exam_screen.dart';
@@ -27,7 +28,7 @@ void main() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
-    debugPrint('Warning: Could not load .env file. Make sure it exists.');
+    debugPrint('Warning: Could not load .env file.');
   }
 
   await Supabase.initialize(
@@ -48,42 +49,11 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final _supabase = Supabase.instance.client;
   final _navigatorKey = GlobalKey<NavigatorState>();
-  StreamSubscription<AuthState>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
-    _authSubscription = _supabase.auth.onAuthStateChange.listen((data) {
-      if (data.event == AuthChangeEvent.passwordRecovery) {
-        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
-          '/reset-password',
-          (_) => false,
-        );
-      }
-    });
     _loadThemeFromSettings();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_isRecoveryLink()) {
-        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
-          '/reset-password',
-          (_) => false,
-        );
-      }
-    });
-  }
-
-  bool _isRecoveryLink() {
-    final uri = Uri.base;
-    return uri.queryParameters['type'] == 'recovery' ||
-        uri.queryParameters.containsKey('token_hash') ||
-        uri.fragment.contains('type=recovery') ||
-        uri.fragment.contains('token_hash=');
-  }
-
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadThemeFromSettings() async {
@@ -114,7 +84,7 @@ class _MyAppState extends State<MyApp> {
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF1A56DB),
-              brightness: Brightness.light, // ✅ เพิ่มตรงนี้
+              brightness: Brightness.light,
             ),
             scaffoldBackgroundColor: const Color(0xFFF8F9FC),
           ),
@@ -122,16 +92,17 @@ class _MyAppState extends State<MyApp> {
             useMaterial3: true,
             colorScheme: ColorScheme.fromSeed(
               seedColor: const Color(0xFF1A56DB),
-              brightness: Brightness.dark, // ✅ เพิ่มตรงนี้
+              brightness: Brightness.dark,
             ),
           ),
           themeMode: mode,
-          initialRoute: _isRecoveryLink() ? '/reset-password' : '/splash',
+          initialRoute: '/splash',
           routes: {
             '/splash': (context) => const SplashScreen(),
             '/login': (context) => const LoginScreen(),
             '/register': (context) => const RegisterScreen(),
             '/forgot-password': (context) => const ForgotPasswordScreen(),
+            '/otp': (context) => const OtpScreen(),
             '/reset-password': (context) => const ResetPasswordScreen(),
             '/vocab-detail': (context) => const VocabDetailScreen(),
             '/bookmarks': (context) => const BookmarkListScreen(),

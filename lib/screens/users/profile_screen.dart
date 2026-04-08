@@ -2,7 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:flutter/services.dart'; 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -150,96 +150,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _changeEmail() async {
-    final currentEmail =
-        (_supabase.auth.currentUser?.email ?? '').trim().toLowerCase();
-    final controller = TextEditingController(
-      text: currentEmail,
-    );
+  final currentEmail =
+      (_supabase.auth.currentUser?.email ?? '').trim().toLowerCase();
+  final emailController = TextEditingController(text: currentEmail);
 
-    final inputEmail = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('เปลี่ยนอีเมล'),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.emailAddress,
-          decoration: const InputDecoration(labelText: 'อีเมลใหม่'),
+  // Step 1: กรอกอีเมลใหม่
+  final inputEmail = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('เปลี่ยนอีเมล'),
+      content: TextField(
+        controller: emailController,
+        keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(labelText: 'อีเมลใหม่'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('ยกเลิก'),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('ยกเลิก'),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, emailController.text.trim()),
+          child: const Text('ส่ง OTP'),
+        ),
+      ],
+    ),
+  );
+
+  if (inputEmail == null || inputEmail.isEmpty) return;
+  final newEmail = inputEmail.trim().toLowerCase();
+
+  if (newEmail == currentEmail) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('อีเมลใหม่ต้องไม่ซ้ำกับอีเมลปัจจุบัน')),
+    );
+    return;
+  }
+
+  if (!_emailRegex.hasMatch(newEmail)) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('รูปแบบอีเมลไม่ถูกต้อง')),
+    );
+    return;
+  }
+
+  // Step 2: ส่ง OTP ไปที่อีเมลใหม่
+  try {
+    await _supabase.auth.updateUser(UserAttributes(email: newEmail));
+  } on AuthException catch (e) {
+    if (!mounted) return;
+    var message = e.message;
+    if (e.message.contains('email_address_invalid')) {
+      message = 'รูปแบบอีเมลไม่ถูกต้อง';
+    } else if (e.message.contains('already been registered')) {
+      message = 'อีเมลนี้ถูกใช้งานแล้ว';
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('เปลี่ยนอีเมลไม่สำเร็จ: $message')),
+    );
+    return;
+  }
+
+  if (!mounted) return;
+
+  // Step 3: กรอก OTP ที่ส่งไปอีเมลใหม่
+  final otpController = TextEditingController();
+  final otp = await showDialog<String>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('กรอกรหัส OTP'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'เราส่งรหัส OTP 6 หลักไปที่\n$newEmail',
+            style: const TextStyle(color: Colors.grey, fontSize: 13),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('ยืนยัน'),
+          const SizedBox(height: 16),
+          TextField(
+            controller: otpController,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 10,
+            ),
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: 'รหัส OTP',
+              border: OutlineInputBorder(),
+              counterText: '',
+            ),
           ),
         ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('ยกเลิก'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, otpController.text.trim()),
+          child: const Text('ยืนยัน'),
+        ),
+      ],
+    ),
+  );
+
+  if (otp == null || otp.length != 6) return;
+
+  // Step 4: verify OTP
+  try {
+    await _supabase.auth.verifyOTP(
+      email: newEmail,
+      token: otp,
+      type: OtpType.emailChange,  // ← ต่างจาก reset password
     );
 
-    if (inputEmail == null || inputEmail.isEmpty) return;
-    final newEmail = inputEmail.trim().toLowerCase();
-
-    if (newEmail == currentEmail) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('อีเมลใหม่ต้องไม่ซ้ำกับอีเมลปัจจุบัน')),
-      );
-      return;
+    // Step 5: อัปเดต email ใน users table ด้วย
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      await _supabase.from('users').upsert({
+        'id': user.id,
+        'email': newEmail,
+        'display_name': _displayName,
+        'avatar_url': _avatarUrl,
+      });
     }
 
-    if (!_emailRegex.hasMatch(newEmail)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('รูปแบบอีเมลไม่ถูกต้อง')),
-      );
-      return;
-    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('เปลี่ยนอีเมลสำเร็จ')),
+    );
+    setState(() {}); // refresh อีเมลที่แสดงบนหน้า
 
-    try {
-      await _supabase.auth.updateUser(UserAttributes(email: newEmail));
-      final user = _supabase.auth.currentUser;
-      if (user != null) {
-        await _supabase.from('users').upsert({
-          'id': user.id,
-          'email': newEmail,
-          'display_name': _displayName,
-          'avatar_url': _avatarUrl,
-        });
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ส่งลิงก์ยืนยันอีเมลใหม่แล้ว กรุณาเช็กอีเมลและกดยืนยันก่อนใช้งาน'),
-        ),
-      );
-      setState(() {});
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      var message = e.message;
-      if (e.message.contains('email_address_invalid')) {
-        message = 'รูปแบบอีเมลไม่ถูกต้อง';
-      } else if (e.message.contains('already been registered')) {
-        message = 'อีเมลนี้ถูกใช้งานแล้ว';
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เปลี่ยนอีเมลไม่สำเร็จ: $message')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เปลี่ยนอีเมลไม่สำเร็จ: $e')));
-    }
+  } on AuthException catch (e) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('OTP ไม่ถูกต้องหรือหมดอายุ: ${e.message}')),
+    );
   }
+}
 
   Future<void> _changePassword() async {
-    final passwordController = TextEditingController();
+    final oldPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
     final confirmController = TextEditingController();
 
-    final newPassword = await showDialog<String>(
+    final result = await showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('เปลี่ยนรหัสผ่าน'),
@@ -247,7 +310,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              controller: passwordController,
+              controller: oldPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: 'รหัสผ่านเดิม',
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: newPasswordController,
               obscureText: true,
               decoration: const InputDecoration(
                 labelText: 'รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)',
@@ -261,6 +332,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 labelText: 'ยืนยันรหัสผ่านใหม่',
               ),
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.pop(context); // ปิด dialog ก่อน
+                  Navigator.pushNamed(context, '/forgot-password');
+                },
+                child: const Text(
+                  'ลืมรหัสผ่าน?',
+                  style: TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -270,13 +359,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           FilledButton(
             onPressed: () {
-              final password = passwordController.text;
+              final oldPass = oldPasswordController.text;
+              final newPass = newPasswordController.text;
               final confirm = confirmController.text;
-              if (password != confirm) {
-                Navigator.pop(context, '__MISMATCH__');
+              if (oldPass.isEmpty) {
+                Navigator.pop(context, {'error': '__NO_OLD__'});
                 return;
               }
-              Navigator.pop(context, password);
+              if (newPass != confirm) {
+                Navigator.pop(context, {'error': '__MISMATCH__'});
+                return;
+              }
+              if (newPass.length < 6) {
+                Navigator.pop(context, {'error': '__TOO_SHORT__'});
+                return;
+              }
+              if (oldPass == newPass) {
+                Navigator.pop(context, {'error': '__SAME__'});
+                return;
+              }
+              Navigator.pop(context, {
+                'oldPassword': oldPass,
+                'newPassword': newPass,
+              });
             },
             child: const Text('บันทึก'),
           ),
@@ -284,38 +389,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
 
-    if (newPassword == null) return;
-    if (newPassword == '__MISMATCH__') {
+    if (result == null) return;
+
+    // แสดง error จาก dialog
+    if (result.containsKey('error')) {
       if (!mounted) return;
+      final messages = {
+        '__NO_OLD__': 'กรุณากรอกรหัสผ่านเดิม',
+        '__MISMATCH__': 'ยืนยันรหัสผ่านไม่ตรงกัน',
+        '__TOO_SHORT__': 'รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร',
+        '__SAME__': 'รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม',
+      };
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ยืนยันรหัสผ่านไม่ตรงกัน')),
-      );
-      return;
-    }
-    if (newPassword.length < 6) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร')),
+        SnackBar(content: Text(messages[result['error']] ?? 'เกิดข้อผิดพลาด')),
       );
       return;
     }
 
+    final oldPassword = result['oldPassword']!;
+    final newPassword = result['newPassword']!;
+    final email = _supabase.auth.currentUser?.email ?? '';
+
+    // Step 1: ยืนยันรหัสผ่านเดิมด้วยการ sign in ใหม่
+    try {
+      await _supabase.auth.signInWithPassword(
+        email: email,
+        password: oldPassword,
+      );
+    } on AuthException {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('รหัสผ่านเดิมไม่ถูกต้อง')),
+      );
+      return;
+    }
+
+    // Step 2: เปลี่ยนเป็นรหัสผ่านใหม่
     try {
       await _supabase.auth.updateUser(UserAttributes(password: newPassword));
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ')),
+      );
     } on AuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: ${e.message}')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: ${e.message}')),
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: $e')),
+      );
     }
   }
 
