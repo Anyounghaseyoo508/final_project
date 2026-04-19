@@ -5,8 +5,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-/// รวม Logic ทั้งหมดของหน้า PracticeExam ไว้ที่นี่
-/// UI ไม่ต้องรู้จัก Supabase หรือ AudioPlayer โดยตรง
 class PracticeExamController extends ChangeNotifier {
   // ─── Dependencies ───────────────────────────────────────────
   final int testId;

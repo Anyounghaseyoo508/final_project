@@ -8,6 +8,9 @@ import '../users/Exam Practice/screens/exam_list_screen.dart';
 import 'Part Practice/screens/part_practice_selector_screen.dart';
 import 'notification_center_screen.dart';
 
+// ─── Global bookmark notifier (shared across screens) ─────────────────────────
+final bookmarkCountNotifier = ValueNotifier<int>(0);
+
 // ─── Palette ──────────────────────────────────────────────────────────────────
 class _P {
   static const bg = Color(0xFFF8F9FC);
@@ -64,6 +67,8 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
   String _bestTitle = '';
   String _worstTitle = '';
 
+  RealtimeChannel? _bookmarkChannel;
+  RealtimeChannel? _notificationChannel;
   late AnimationController _fadeCtrl;
   late Animation<double> _fadeAnim;
 
@@ -75,12 +80,72 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
     _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
     _loadStats();
     _loadUnreadCount();
+
+    bookmarkCountNotifier.addListener(_onBookmarkNotifierChanged);
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user != null) {
+      _bookmarkChannel = _supabase
+          .channel('dashboard:bookmarks:${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'bookmarks',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: user.id,
+            ),
+            callback: (_) => _refreshBookmarkCount(),
+          )
+          .subscribe();
+
+      // ── Listen notification ใหม่แบบ realtime ──────────────────────────────
+      // ทุกครั้งที่แอดมิน insert ลง user_notifications → อัปเดต badge ทันที
+      _notificationChannel = _supabase
+          .channel('dashboard:notifications:${user.id}')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.insert,
+            schema: 'public',
+            table: 'user_notifications',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'user_id',
+              value: user.id,
+            ),
+            callback: (_) => _loadUnreadCount(),
+          )
+          .subscribe();
+    }
+  }
+
+  void _onBookmarkNotifierChanged() {
+    if (mounted) {
+      setState(() => _bookmarkCount = bookmarkCountNotifier.value);
+    }
+  }
+
+  Future<void> _refreshBookmarkCount() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null || !mounted) return;
+    try {
+      final res =
+          await _supabase.from('bookmarks').select('id').eq('user_id', user.id);
+      if (mounted) {
+        final count = (res as List).length;
+        bookmarkCountNotifier.value = count;
+        setState(() => _bookmarkCount = count);
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    bookmarkCountNotifier.removeListener(_onBookmarkNotifierChanged);
     _fadeCtrl.dispose();
     super.dispose();
+    _bookmarkChannel?.unsubscribe();
+    _notificationChannel?.unsubscribe();
   }
 
   Future<void> _loadStats() async {
@@ -178,6 +243,7 @@ class _UserDashboardScreenState extends State<UserDashboardScreen>
         _bestScore = best;
         _lastLevel = lastLevel;
         _bookmarkCount = bookmarks.length;
+        bookmarkCountNotifier.value = bookmarks.length;
         _lastTitle = lastTitle.toString();
         _lastDate = lastDate.toString();
         _worstScore = worst;
@@ -998,265 +1064,263 @@ class _DashboardResourcesRow extends StatelessWidget {
     'sheet': 'PDF',
   };
 
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _supabase
+  Future<List<Map<String, dynamic>>> _fetchItems() async {
+    final results = await Future.wait([
+      _supabase
           .from('learning_resources')
-          .stream(primaryKey: ['id'])
+          .select()
           .eq('is_pinned', true)
           .order('created_at', ascending: false),
-      builder: (context, resourcesSnap) {
-        return StreamBuilder<List<Map<String, dynamic>>>(
-          stream: _supabase
-              .from('sheets')
-              .stream(primaryKey: ['id'])
-              .eq('is_pinned', true)
-              .order('created_at', ascending: false),
-          builder: (context, sheetsSnap) {
-            if (!resourcesSnap.hasData || !sheetsSnap.hasData) {
-              return SizedBox(
-                  height: 160,
-                  child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: 3,
-                      itemBuilder: (_, __) => _SkeletonCard()));
-            }
+      _supabase
+          .from('sheets')
+          .select()
+          .eq('is_pinned', true)
+          .order('created_at', ascending: false),
+    ]);
+    final merged = [
+      ...(results[0] as List)
+          .map((m) => {...m as Map<String, dynamic>, '_source': 'resource'}),
+      ...(results[1] as List).map((m) =>
+          {...m as Map<String, dynamic>, '_source': 'sheet', 'type': 'sheet'}),
+    ]..sort((a, b) {
+        final da = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(0);
+        final db = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(0);
+        return db.compareTo(da);
+      });
+    return merged;
+  }
 
-            // merge: resources + sheets, sort by createdAt desc
-            final merged = [
-              ...resourcesSnap.data!.map((m) => {...m, '_source': 'resource'}),
-              ...sheetsSnap.data!
-                  .map((m) => {...m, '_source': 'sheet', 'type': 'sheet'}),
-            ]..sort((a, b) {
-                final da =
-                    DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(0);
-                final db =
-                    DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(0);
-                return db.compareTo(da);
-              });
-
-            if (merged.isEmpty) {
-              return Container(
-                height: 80,
-                decoration: BoxDecoration(
-                    color: _P.surfaceAlt,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: _P.border)),
-                child: const Center(
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(Icons.inbox_rounded, color: _P.textMute, size: 18),
-                  SizedBox(width: 8),
-                  Text('ยังไม่มีแหล่งเรียนรู้',
-                      style: TextStyle(color: _P.textMute, fontSize: 13)),
-                ])),
-              );
-            }
-
-            return SizedBox(
-              height: 172,
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _fetchItems(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return SizedBox(
+              height: 160,
               child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                clipBehavior: Clip.none,
-                padding: const EdgeInsets.only(right: 4),
-                itemCount: merged.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == merged.length) {
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: GestureDetector(
-                        onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (_) =>
-                                    const LearningResourcesScreen())),
-                        child: Container(
-                          width: 80,
-                          decoration: BoxDecoration(
-                              color: _P.blueLight,
-                              borderRadius: BorderRadius.circular(16),
-                              border:
-                                  Border.all(color: _P.blue.withOpacity(0.18))),
-                          child: const Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.grid_view_rounded,
-                                    color: _P.blue, size: 24),
-                                SizedBox(height: 8),
-                                Text('ดูทั้งหมด',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                        color: _P.blue,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700)),
-                              ]),
-                        ),
-                      ),
-                    );
-                  }
+                  scrollDirection: Axis.horizontal,
+                  itemCount: 3,
+                  itemBuilder: (_, __) => _SkeletonCard()));
+        }
+        if (snap.hasError) {
+          return const SizedBox(
+              height: 80, child: Center(child: Text('โหลดไม่สำเร็จ')));
+        }
 
-                  final item = merged[index];
-                  final source = item['_source'] as String;
-                  final type = (item['type'] as String?) ?? 'other';
-                  final style = _typeStyle[type] ?? _typeStyle['other']!;
-                  final (icon, color, bg, badgeBg) = style;
-                  final label = _typeLabel[type] ?? 'อื่นๆ';
-                  final title = (item['title'] as String?) ?? '';
-                  final desc = source == 'sheet'
-                      ? (item['category'] as String? ?? '')
-                      : (item['description'] as String? ?? '');
+        final merged = snap.data!;
 
-                  return Padding(
-                    padding: EdgeInsets.only(left: index == 0 ? 0 : 10),
-                    child: GestureDetector(
-                      onTap: () {
-                        if (source == 'resource') {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => ResourceDetailScreen(
-                                      resource:
-                                          LearningResource.fromMap(item))));
-                        } else {
-                          Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) =>
-                                      const LearningResourcesScreen()));
-                        }
-                      },
-                      child: Container(
-                        width: 156,
-                        decoration: BoxDecoration(
-                          color: _P.surface,
+        if (merged.isEmpty) {
+          return Container(
+            height: 80,
+            decoration: BoxDecoration(
+                color: _P.surfaceAlt,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _P.border)),
+            child: const Center(
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.inbox_rounded, color: _P.textMute, size: 18),
+              SizedBox(width: 8),
+              Text('ยังไม่มีแหล่งเรียนรู้',
+                  style: TextStyle(color: _P.textMute, fontSize: 13)),
+            ])),
+          );
+        }
+
+        return SizedBox(
+          height: 172,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            clipBehavior: Clip.none,
+            padding: const EdgeInsets.only(right: 4),
+            itemCount: merged.length + 1,
+            itemBuilder: (context, index) {
+              if (index == merged.length) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: GestureDetector(
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const LearningResourcesScreen())),
+                    child: Container(
+                      width: 80,
+                      decoration: BoxDecoration(
+                          color: _P.blueLight,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: _P.border),
-                          boxShadow: [
-                            BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 3))
-                          ],
-                        ),
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                height: 72,
-                                decoration: BoxDecoration(
-                                    color: bg,
-                                    borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(16))),
-                                child: Stack(children: [
-                                  Positioned(
-                                      right: -12,
-                                      bottom: -12,
-                                      child: Container(
-                                          width: 60,
-                                          height: 60,
-                                          decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: color.withOpacity(0.1)))),
-                                  Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Container(
-                                          width: 40,
-                                          height: 40,
-                                          decoration: BoxDecoration(
-                                              color: Colors.white,
-                                              borderRadius:
-                                                  BorderRadius.circular(11),
-                                              boxShadow: [
-                                                BoxShadow(
-                                                    color:
-                                                        color.withOpacity(0.18),
-                                                    blurRadius: 6,
-                                                    offset: const Offset(0, 2))
-                                              ]),
-                                          child: Icon(icon,
-                                              color: color, size: 20))),
-                                  Positioned(
-                                      right: 8,
-                                      top: 8,
-                                      child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 7, vertical: 3),
-                                          decoration: BoxDecoration(
-                                              color: badgeBg,
-                                              borderRadius:
-                                                  BorderRadius.circular(20)),
-                                          child: Text(label,
-                                              style: TextStyle(
-                                                  color: color,
-                                                  fontSize: 9,
-                                                  fontWeight:
-                                                      FontWeight.w700)))),
-                                ]),
-                              ),
-                              Expanded(
-                                child: Padding(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                                  child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(title,
-                                            style: const TextStyle(
-                                                color: _P.textPri,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w700,
-                                                height: 1.3),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis),
-                                        if (desc.isNotEmpty) ...[
-                                          const SizedBox(height: 3),
-                                          Expanded(
-                                              child: Text(desc,
-                                                  style: const TextStyle(
-                                                      color: _P.textSec,
-                                                      fontSize: 10,
-                                                      height: 1.4),
-                                                  maxLines: 2,
-                                                  overflow:
-                                                      TextOverflow.ellipsis)),
-                                        ],
-                                      ]),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 7),
-                                decoration: BoxDecoration(
-                                    color: _P.surfaceAlt,
-                                    borderRadius: const BorderRadius.vertical(
-                                        bottom: Radius.circular(16))),
-                                child: Row(children: [
-                                  Expanded(
-                                      child: Text(
-                                          source == 'sheet'
-                                              ? 'เปิดอ่าน PDF'
-                                              : 'ดูรายละเอียด',
+                          border: Border.all(color: _P.blue.withOpacity(0.18))),
+                      child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.grid_view_rounded,
+                                color: _P.blue, size: 24),
+                            SizedBox(height: 8),
+                            Text('ดูทั้งหมด',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    color: _P.blue,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700)),
+                          ]),
+                    ),
+                  ),
+                );
+              }
+
+              final item = merged[index];
+              final source = item['_source'] as String;
+              final type = (item['type'] as String?) ?? 'other';
+              final style = _typeStyle[type] ?? _typeStyle['other']!;
+              final (icon, color, bg, badgeBg) = style;
+              final label = _typeLabel[type] ?? 'อื่นๆ';
+              final title = (item['title'] as String?) ?? '';
+              final desc = source == 'sheet'
+                  ? (item['category'] as String? ?? '')
+                  : (item['description'] as String? ?? '');
+
+              return Padding(
+                padding: EdgeInsets.only(left: index == 0 ? 0 : 10),
+                child: GestureDetector(
+                  onTap: () {
+                    if (source == 'resource') {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => ResourceDetailScreen(
+                                  resource: LearningResource.fromMap(item))));
+                    } else {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const LearningResourcesScreen()));
+                    }
+                  },
+                  child: Container(
+                    width: 156,
+                    decoration: BoxDecoration(
+                      color: _P.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: _P.border),
+                      boxShadow: [
+                        BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3))
+                      ],
+                    ),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            height: 72,
+                            decoration: BoxDecoration(
+                                color: bg,
+                                borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16))),
+                            child: Stack(children: [
+                              Positioned(
+                                  right: -12,
+                                  bottom: -12,
+                                  child: Container(
+                                      width: 60,
+                                      height: 60,
+                                      decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: color.withOpacity(0.1)))),
+                              Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(11),
+                                          boxShadow: [
+                                            BoxShadow(
+                                                color: color.withOpacity(0.18),
+                                                blurRadius: 6,
+                                                offset: const Offset(0, 2))
+                                          ]),
+                                      child:
+                                          Icon(icon, color: color, size: 20))),
+                              Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 3),
+                                      decoration: BoxDecoration(
+                                          color: badgeBg,
+                                          borderRadius:
+                                              BorderRadius.circular(20)),
+                                      child: Text(label,
                                           style: TextStyle(
                                               color: color,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w700))),
-                                  Icon(
-                                      source == 'sheet'
-                                          ? Icons.open_in_new_rounded
-                                          : Icons.arrow_forward_ios_rounded,
-                                      size: 9,
-                                      color: color),
-                                ]),
-                              ),
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w700)))),
                             ]),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
+                          ),
+                          Expanded(
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(title,
+                                        style: const TextStyle(
+                                            color: _P.textPri,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            height: 1.3),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis),
+                                    if (desc.isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Expanded(
+                                          child: Text(desc,
+                                              style: const TextStyle(
+                                                  color: _P.textSec,
+                                                  fontSize: 10,
+                                                  height: 1.4),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis)),
+                                    ],
+                                  ]),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 7),
+                            decoration: BoxDecoration(
+                                color: _P.surfaceAlt,
+                                borderRadius: const BorderRadius.vertical(
+                                    bottom: Radius.circular(16))),
+                            child: Row(children: [
+                              Expanded(
+                                  child: Text(
+                                      source == 'sheet'
+                                          ? 'เปิดอ่าน PDF'
+                                          : 'ดูรายละเอียด',
+                                      style: TextStyle(
+                                          color: color,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700))),
+                              Icon(
+                                  source == 'sheet'
+                                      ? Icons.open_in_new_rounded
+                                      : Icons.arrow_forward_ios_rounded,
+                                  size: 9,
+                                  color: color),
+                            ]),
+                          ),
+                        ]),
+                  ),
+                ),
+              );
+            },
+          ),
         );
       },
     );

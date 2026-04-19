@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../controller/exam_list_controller.dart';
-
+import 'exam_info_screen.dart';
 class ExamListScreen extends StatefulWidget {
   const ExamListScreen({super.key});
 
@@ -12,9 +12,9 @@ class ExamListScreen extends StatefulWidget {
 class _ExamListScreenState extends State<ExamListScreen> {
   final _ctrl = ExamListController();
 
-  static const _blue    = Color(0xFF1A56DB);
-  static const _blueL   = Color(0xFFEEF3FF);
-  static const _bg      = Color(0xFFF0F4F8);
+  static const _blue = Color(0xFF1A56DB);
+  static const _blueL = Color(0xFFEEF3FF);
+  static const _bg = Color(0xFFF0F4F8);
   static const _textSec = Color(0xFF64748B);
 
   @override
@@ -44,6 +44,16 @@ class _ExamListScreenState extends State<ExamListScreen> {
           'เลือกชุดข้อสอบ TOEIC',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
+        /*actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline_rounded),
+            tooltip: 'เกี่ยวกับข้อสอบ',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ExamInfoScreen()),
+            ),
+          ),
+        ],*/
       ),
       body: FutureBuilder<List<ExamSet>>(
         future: _ctrl.getTestList(),
@@ -60,10 +70,9 @@ class _ExamListScreenState extends State<ExamListScreen> {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                        color: _blueL,
-                        borderRadius: BorderRadius.circular(20)),
-                    child: const Icon(Icons.inbox_rounded,
-                        size: 48, color: _blue),
+                        color: _blueL, borderRadius: BorderRadius.circular(20)),
+                    child:
+                        const Icon(Icons.inbox_rounded, size: 48, color: _blue),
                   ),
                   const SizedBox(height: 16),
                   const Text('ยังไม่มีชุดข้อสอบในระบบ',
@@ -107,7 +116,7 @@ class _ExamCard extends StatelessWidget {
   const _ExamCard(
       {required this.exam, required this.index, required this.onTap});
 
-  static const _border  = Color(0xFFE2E8F0);
+  static const _border = Color(0xFFE2E8F0);
   static const _textPri = Color(0xFF0F1729);
 
   Color get _accent {
@@ -179,8 +188,8 @@ class _ExamCard extends StatelessWidget {
                   decoration: BoxDecoration(
                       color: a.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(10)),
-                  child: Icon(Icons.arrow_forward_ios_rounded,
-                      size: 14, color: a),
+                  child:
+                      Icon(Icons.arrow_forward_ios_rounded, size: 14, color: a),
                 ),
               ],
             ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/tts_service.dart';
 import '../../../models/vocab_model.dart';
+import '../dashboard_screen.dart';
 
 class VocabDetailScreen extends StatefulWidget {
   static const routeName = '/vocab-detail';
@@ -83,11 +84,13 @@ class _VocabDetailScreenState extends State<VocabDetailScreen> {
             .delete()
             .eq('user_id', user.id)
             .eq('vocab_id', vocabId);
+        bookmarkCountNotifier.value = (bookmarkCountNotifier.value - 1).clamp(0, 999999);
       } else {
         await _supabase.from('bookmarks').insert({
           'user_id': user.id,
           'vocab_id': vocabId,
         });
+        bookmarkCountNotifier.value = bookmarkCountNotifier.value + 1;
       }
       setState(() => _isBookmarked = !_isBookmarked);
     } catch (e) {

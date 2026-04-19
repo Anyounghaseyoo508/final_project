@@ -123,7 +123,7 @@ class _RegisterScreenState extends State<RegisterScreen>
         return;
       }
 
-      // ✅ ใช้ upsert แทน insert เพื่อป้องกัน 409 Conflict
+      //  ใช้ upsert แทน insert เพื่อป้องกัน 409 Conflict
       await _supabase.from('users').upsert({
         'id': user.id,
         'email': _emailController.text.trim(),

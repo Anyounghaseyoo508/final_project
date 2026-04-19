@@ -428,15 +428,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       await _supabase.auth.updateUser(UserAttributes(password: newPassword));
       if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('เปลี่ยนรหัสผ่านสำเร็จ')),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: ${e.message}')),
       );
     } catch (e) {
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      await Future.delayed(const Duration(milliseconds: 400));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('เปลี่ยนรหัสผ่านไม่สำเร็จ: $e')),

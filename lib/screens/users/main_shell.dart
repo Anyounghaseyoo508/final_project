@@ -20,13 +20,17 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    // ซ่อน FAB เมื่อ keyboard เปิด
+    final isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
+
     final pages = [
-      const _ExamHubScreen(), // 0
-      const VocabListScreen(), // 1
-      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)), // 2
-      const GamesMenuScreen(), // 3 ← เพิ่ม
-      const ProfileScreen(), // 4 ← เพิ่ม (ถ้ามี)
+      const _ExamHubScreen(),
+      const VocabListScreen(),
+      UserDashboardScreen(onGamesTap: () => setState(() => _idx = 3)),
+      const GamesMenuScreen(),
+      const ProfileScreen(),
     ];
+
     SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
@@ -35,18 +39,23 @@ class _MainShellState extends State<MainShell> {
     ));
 
     return Scaffold(
+      resizeToAvoidBottomInset: false, // ← เพิ่มบรรทัดนี้
       body: IndexedStack(index: _idx, children: pages),
-      floatingActionButton: _HomeFAB(
-        isActive: _idx == 2,
-        accent: _accent,
-        onTap: () => setState(() => _idx = 2),
-      ),
+      floatingActionButton: isKeyboardOpen  // ← ซ่อนเมื่อ keyboard เปิด
+          ? null
+          : _HomeFAB(
+              isActive: _idx == 2,
+              accent: _accent,
+              onTap: () => setState(() => _idx = 2),
+            ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: _NavBar(
-        currentIndex: _idx,
-        accent: _accent,
-        onTap: (i) => setState(() => _idx = i),
-      ),
+      bottomNavigationBar: isKeyboardOpen  // ← ซ่อน navbar เมื่อ keyboard เปิด
+          ? null
+          : _NavBar(
+              currentIndex: _idx,
+              accent: _accent,
+              onTap: (i) => setState(() => _idx = i),
+            ),
     );
   }
 }
